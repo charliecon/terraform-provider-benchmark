@@ -47,12 +47,12 @@ Create a `terraformrc` file in your working directory (where you'll run the benc
 ```hcl
 provider_installation {
   dev_overrides {
-    "mypurecloud/genesyscloud" = "/absolute/path/to/your/terraform-provider-genesyscloud"
+    "mypurecloud/genesyscloud" = "/absolute/path/to/your/terraform-provider-genesyscloud/dist/"
   }
 }
 ```
 
-**Important**: Replace `/absolute/path/to/your/terraform-provider-genesyscloud` with the actual absolute path to your cloned provider repository.
+**Important**: Replace `/absolute/path/to/your/terraform-provider-genesyscloud/dist/` with the actual absolute path of the `dist` folder in your cloned provider repository. The `dist` folder will be created automatically by the `make sideload` process.
 
 ### 3. Prepare Your Terraform Configuration
 

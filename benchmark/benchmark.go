@@ -27,12 +27,12 @@ func (b *Benchmark) logMessage(level LogLevel, format string, args ...interface{
 }
 
 // confirmDestructiveOperation prompts the user for confirmation before destructive operations
-func (b *Benchmark) confirmDestructiveOperation(operation string) error {
+func (b *Benchmark) confirmDestructiveOperation() error {
 	if !b.RequireConfirmation {
 		return nil
 	}
 
-	fmt.Printf("\n⚠️  WARNING: About to run destructive operation: %s\n", operation)
+	fmt.Printf("\n⚠️  WARNING: About to run destructive terraform operation\n")
 	fmt.Printf("This will destroy any existing Terraform state.\n")
 	fmt.Printf("Are you sure you want to continue? (yes/no): ")
 
@@ -72,6 +72,11 @@ func writeDataToFile(data []PlanDetails) error {
 // testCommitHashes tests different versions of the project by commit hash
 func (b *Benchmark) testReferences() error {
 	var data []PlanDetails
+
+	// Request confirmation if required
+	if err := b.confirmDestructiveOperation(); err != nil {
+		return err
+	}
 
 	// Iterate through versions, testing each one
 	for i, ref := range b.References {
@@ -129,7 +134,13 @@ func (b *Benchmark) runTerraformCommand(reference string) error {
 	}
 	defer outputFile.Close()
 
-	cmd := exec.Command(string(b.TfCommand))
+	// Split the command into executable and arguments
+	commandParts := strings.Fields(string(b.TfCommand))
+	if len(commandParts) == 0 {
+		return fmt.Errorf("invalid command: %s", string(b.TfCommand))
+	}
+
+	cmd := exec.Command(commandParts[0], commandParts[1:]...)
 	cmd.Stdout = outputFile
 	cmd.Stderr = outputFile
 
@@ -206,13 +217,6 @@ func (b *Benchmark) makeSideload(ref string) (err error) {
 
 // destroy runs terraform destroy with optional confirmation
 func (b *Benchmark) destroy() error {
-	operation := "terraform destroy --auto-approve"
-
-	// Request confirmation if required
-	if err := b.confirmDestructiveOperation(operation); err != nil {
-		return err
-	}
-
 	command := []string{"terraform", "destroy", "--auto-approve"}
 	b.logMessage(LogLevelInfo, "Running %v", command)
 
