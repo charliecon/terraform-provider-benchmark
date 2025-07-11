@@ -3,10 +3,9 @@ package benchmark
 type command string
 
 const (
-	Apply   command = "terraform apply --auto-approve"
-	Destroy command = "terraform destroy --auto-approve"
-	Init    command = "terraform init"
-	Plan    command = "terraform plan"
+	Apply command = "terraform apply --auto-approve"
+	Init  command = "terraform init"
+	Plan  command = "terraform plan"
 )
 
 // LogLevel represents the logging level
