@@ -33,8 +33,8 @@ type Benchmark struct {
 	// ProjectPath is the absolute path to the locally cloned project
 	ProjectPath string
 
-	// RequireConfirmation controls whether destructive operations require user confirmation
-	RequireConfirmation bool
+	// SkipDestroyConfirmation controls whether to skip user confirmation for destructive operations
+	SkipDestroyConfirmation bool
 
 	// LogLevel controls the verbosity of logging
 	LogLevel LogLevel
@@ -47,6 +47,9 @@ type Benchmark struct {
 
 	// TfConfigDir is the directory containing the Terraform configuration to run commands against (Defaults to current working directory)
 	TfConfigDir string
+
+	// RequireConfirmation controls whether to require user confirmation for destructive operations (Deprecated. Use SkipDestroyConfirmation instead.)
+	RequireConfirmation bool
 
 	logsDir             string
 	performanceDir      string
