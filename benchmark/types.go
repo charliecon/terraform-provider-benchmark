@@ -33,6 +33,21 @@ type Benchmark struct {
 
 	// LogLevel controls the verbosity of logging
 	LogLevel LogLevel
+
+	// TerraformRcFilePath is the path to the .terraformrc file (Defaults to "./.terraformrc" which is to say we assume it is in the current working directory)
+	TerraformRcFilePath string
+
+	// OutputDir is the directory to write the output to (Defaults to "output")
+	OutputDir string
+
+	// TfConfigDir is the directory containing the Terraform configuration to run commands against (Defaults to current working directory)
+	TfConfigDir string
+
+	logsDir             string
+	performanceDir      string
+	performanceFilePath string
+	destroyLogFilePath  string
+	initLogFilePath     string
 }
 
 // PlanDetails stores details about each Terraform plan execution

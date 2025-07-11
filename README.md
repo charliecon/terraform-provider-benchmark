@@ -59,7 +59,9 @@ provider_installation {
 Place your Terraform configuration files (`.tf` files) in the same directory where you'll run the benchmark. This directory should contain:
 
 - Your Terraform configuration files (e.g., `main.tf`, `variables.tf`, etc.)
-- The `terraformrc` file (from step 2)
+    - Ensure your Genesys Cloud client credentials are set via environment variables or the provider block. 
+    For more guidance see [the README of terraform-provider-genesyscloud](https://github.com/MyPureCloud/terraform-provider-genesyscloud)
+- The `.terraformrc` file (from step 2)
 - The Go file that imports and uses the benchmark package
 
 ## Usage
@@ -90,6 +92,7 @@ func main() {
         ProjectPath: "/absolute/path/to/your/terraform-provider-genesyscloud",
         RequireConfirmation: true,  // Ask for confirmation before destructive operations
         LogLevel: benchmark.LogLevelInfo,  // Set logging verbosity
+        TfConfigDir: "full/path/to/terraform_config/folder",
     }
     
     // Run the benchmark
@@ -100,6 +103,16 @@ func main() {
 ```
 
 ### Configuration Options
+
+#### TfConfigDir
+Specify a custom directory containing your Terraform configuration files. If not provided, defaults to the current working directory.
+
+```go
+b := &benchmark.Benchmark{
+    // ... other fields ...
+    TfConfigDir: "/full/path/to/your/terraform/config",  // Custom Terraform config directory
+}
+```
 
 #### RequireConfirmation
 When set to `true`, the benchmark will prompt for user confirmation before running destructive operations like `terraform destroy`. This helps prevent accidental data loss.
@@ -122,6 +135,26 @@ Control the verbosity of logging output:
 b := &benchmark.Benchmark{
     // ... other fields ...
     LogLevel: benchmark.LogLevelDebug,  // Verbose logging
+}
+```
+
+#### TerraformRcFilePath
+Specify a custom path to your `.terraformrc` file. If not provided, defaults to `./.terraformrc`.
+
+```go
+b := &benchmark.Benchmark{
+    // ... other fields ...
+    TerraformRcFilePath: "/full/path/to/.terraformrc",  // Custom terraformrc location
+}
+```
+
+#### OutputDir
+Specify a custom directory for benchmark output files. If not provided, defaults to `output`.
+
+```go
+b := &benchmark.Benchmark{
+    // ... other fields ...
+    OutputDir: "custom-output",  // Custom output directory
 }
 ```
 
@@ -154,6 +187,7 @@ The benchmark will create the following directory structure:
 │   │   └── data.json          # Timing results in JSON format
 │   └── logs/
 │       ├── destroy.log        # Destroy command output
+│       ├── init.log          # Terraform init command output
 │       ├── main.log          # Log for 'main' reference
 │       ├── v1.66.0.log       # Log for 'v1.66.0' reference
 │       └── abc1234.log      # Log for 'abc1234' reference
@@ -185,14 +219,15 @@ The `data.json` file contains timing results in the following format:
 
 ## How It Works
 
-1. **Setup**: Creates necessary output directories
-2. **Iteration**: For each reference (commit/branch/tag):
-   - Runs `terraform destroy` to clean up any existing state (with optional confirmation)
+1. **Setup**: Creates necessary output directories and placeholder files
+2. **Initialization**: Runs `terraform init` to initialize the Terraform working directory
+3. **Iteration**: For each reference (commit/branch/tag):
    - Checks out the specified reference in the provider repository
    - Runs `make sideload` to build and install the provider
+   - Runs `terraform destroy` to clean up any existing state (with optional confirmation)
    - Executes the specified Terraform command and measures execution time
    - Records the results
-3. **Output**: Saves timing data to JSON file and logs to individual files
+4. **Output**: Saves timing data to JSON file and logs to individual files
 
 ## Safety Features
 
@@ -202,10 +237,12 @@ The `data.json` file contains timing results in the following format:
 
 ## Notes
 
-- The tool expects a `terraformrc` file in the current working directory
+- The tool expects a `terraformrc` file in the current working directory (or custom path specified)
 - Each benchmark run will destroy any existing Terraform state before testing (unless cancelled)
 - The provider repository will be switched between different references during testing
 - All Terraform command output is logged to individual files for debugging
+- The benchmark automatically initializes Terraform before running commands. This means you should have a provider block set up in your tf configuration.
+- Output files are created fresh on each run to ensure clean results
 
 
 
