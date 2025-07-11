@@ -18,6 +18,11 @@ const (
 	LogLevelDebug
 )
 
+// String returns the string representation of the LogLevel
+func (l LogLevel) String() string {
+	return []string{"Quiet", "Info", "Debug"}[l]
+}
+
 type Benchmark struct {
 	// TfCommand Terraform command to run
 	TfCommand command
