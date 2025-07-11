@@ -12,9 +12,6 @@ import (
 	"time"
 )
 
-// File to store timing data results
-var dataFilePath = filepath.Join(".", "output", "performance", "data.json")
-
 // logMessage provides structured logging based on the benchmark's log level
 func (b *Benchmark) logMessage(level LogLevel, format string, args ...interface{}) {
 	if b.LogLevel >= level {
@@ -52,9 +49,11 @@ func (b *Benchmark) confirmDestructiveOperation() error {
 }
 
 // writeDataToFile writes collected timing data to JSON file
-func writeDataToFile(data []PlanDetails) error {
-	fmt.Printf("Writing data to %s\n", dataFilePath)
+func (b *Benchmark) writeDataToFile(data []PlanDetails) error {
+	var dataFilePath = filepath.Join(".", b.OutputDir, "performance", "data.json")
+	b.logMessage(LogLevelInfo, "Writing data to %s", dataFilePath)
 
+	// Create the parent directory for the data file
 	// Ensure directory exists
 	dir := filepath.Dir(dataFilePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -112,13 +111,13 @@ func (b *Benchmark) testReferences() error {
 		data = append(data, plan)
 	}
 
-	return writeDataToFile(data)
+	return b.writeDataToFile(data)
 }
 
 // runTerraformCommand executes terraform command and captures output
 func (b *Benchmark) runTerraformCommand(reference string) error {
 	logFileName := strings.ReplaceAll(reference, ".", "_")
-	outputFileName := filepath.Join(".", "output", "logs", fmt.Sprintf("%s.log", logFileName))
+	outputFileName := filepath.Join(".", b.OutputDir, "logs", fmt.Sprintf("%s.log", logFileName))
 
 	// Create the parent directory for the log file
 	dir := filepath.Dir(outputFileName)
@@ -145,14 +144,14 @@ func (b *Benchmark) runTerraformCommand(reference string) error {
 	cmd.Stderr = outputFile
 
 	// checking if file exists
-	if _, err := os.Stat("./terraformrc"); os.IsNotExist(err) {
+	if _, err := os.Stat(b.TerraformRcFilePath); os.IsNotExist(err) {
 		return fmt.Errorf("terraformrc file does not exist where we expect it to")
 	}
 
-	// Set TF_CLI_CONFIG_FILE to ./terraformrc
-	b.logMessage(LogLevelDebug, "Setting TF_CLI_CONFIG_FILE to ./terraformrc")
+	// Set TF_CLI_CONFIG_FILE to b.TerraformRcFilePath
+	b.logMessage(LogLevelDebug, "Setting TF_CLI_CONFIG_FILE to "+b.TerraformRcFilePath)
 	env := os.Environ()
-	env = append(env, "TF_CLI_CONFIG_FILE=./terraformrc")
+	env = append(env, "TF_CLI_CONFIG_FILE="+b.TerraformRcFilePath)
 	cmd.Env = env
 
 	b.logMessage(LogLevelInfo, "Running %s for version %s", string(b.TfCommand), reference)
@@ -165,19 +164,20 @@ func (b *Benchmark) runTerraformCommand(reference string) error {
 }
 
 // createDirectories creates output directories if they don't exist
-func createDirectories() error {
+func (b *Benchmark) createOutputDirectories() error {
+	b.logMessage(LogLevelInfo, "Creating output directories")
 	directories := []string{
-		"./output/performance/",
-		"./output/logs/",
+		b.logsDir,
+		b.performanceDir,
 	}
 
 	for _, directory := range directories {
 		if err := os.MkdirAll(directory, 0755); err != nil {
-			return fmt.Errorf("failed to create directory %s: %v", directory, err)
+			return fmt.Errorf("failed to create directory %s: %w", directory, err)
 		}
-		log.Printf("Directory ready: %s", directory)
 	}
 
+	b.logMessage(LogLevelInfo, "Output directories created")
 	return nil
 }
 
@@ -220,7 +220,7 @@ func (b *Benchmark) destroy() error {
 	command := []string{"terraform", "destroy", "--auto-approve"}
 	b.logMessage(LogLevelInfo, "Running %v", command)
 
-	outputFileName := filepath.Join(".", "output", "logs", "destroy.log")
+	outputFileName := filepath.Join(b.logsDir, "destroy.log")
 
 	// Ensure directory exists
 	dir := filepath.Dir(outputFileName)
@@ -246,15 +246,66 @@ func (b *Benchmark) destroy() error {
 	return nil
 }
 
+func (b *Benchmark) configureDefaults() {
+	if b.OutputDir == "" {
+		b.OutputDir = "output"
+	}
+	if b.TerraformRcFilePath == "" {
+		b.TerraformRcFilePath = "./.terraformrc"
+	}
+}
+
+// setDefaults sets the default values for the benchmark
+func (b *Benchmark) configureOutputDirectories() {
+	if b.OutputDir == "" {
+		b.OutputDir = "output"
+	}
+	b.logsDir = filepath.Join(".", b.OutputDir, "logs")
+	b.performanceDir = filepath.Join(".", b.OutputDir, "performance")
+}
+
+func (b *Benchmark) validate() error {
+	b.logMessage(LogLevelInfo, "Validating benchmark configuration")
+	if b.TfCommand == "" {
+		return fmt.Errorf("terraform command is required")
+	}
+	if len(b.References) == 0 {
+		return fmt.Errorf("at least one reference is required")
+	}
+	if b.ProjectPath == "" {
+		return fmt.Errorf("project path is required")
+	}
+	return nil
+}
+
+func (b *Benchmark) setupConfiguration() error {
+	if err := b.validate(); err != nil {
+		return fmt.Errorf("validation failed: %w", err)
+	}
+
+	b.logMessage(LogLevelInfo, "Configuring benchmark default values")
+	b.configureDefaults()
+	b.configureOutputDirectories()
+	return nil
+}
+
 func (b *Benchmark) Run() error {
 	b.logMessage(LogLevelInfo, "Starting benchmark with %d references", len(b.References))
 
-	if err := createDirectories(); err != nil {
-		return fmt.Errorf("failed to create directories: %v", err)
+	if err := b.setupConfiguration(); err != nil {
+		return fmt.Errorf("pre-config failed: %w", err)
+	}
+
+	if err := b.createOutputDirectories(); err != nil {
+		return fmt.Errorf("failed to create output directories: %w", err)
+	}
+
+	if err := b.confirmDestructiveOperation(); err != nil {
+		return fmt.Errorf("failed to confirm destructive operation: %w", err)
 	}
 
 	if err := b.testReferences(); err != nil {
-		return fmt.Errorf("failed to test commit hashes: %v", err)
+		return fmt.Errorf("failed to test commit hashes: %w", err)
 	}
 
 	b.logMessage(LogLevelInfo, "Benchmark completed successfully")
