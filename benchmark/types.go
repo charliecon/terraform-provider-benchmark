@@ -47,6 +47,7 @@ type Benchmark struct {
 	performanceDir      string
 	performanceFilePath string
 	destroyLogFilePath  string
+	initLogFilePath     string
 }
 
 // PlanDetails stores details about each Terraform plan execution

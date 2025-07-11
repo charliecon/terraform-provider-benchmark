@@ -65,9 +65,8 @@ func (b *Benchmark) writeDataToFile(data []PlanDetails) error {
 func (b *Benchmark) testReferences() error {
 	var data []PlanDetails
 
-	// Request confirmation if required
-	if err := b.confirmDestructiveOperation(); err != nil {
-		return err
+	if err := b.initialiseTerraform(); err != nil {
+		return fmt.Errorf("terraform init failed: %v", err)
 	}
 
 	// Iterate through versions, testing each one
@@ -104,6 +103,50 @@ func (b *Benchmark) testReferences() error {
 	return b.writeDataToFile(data)
 }
 
+// setupTerraformCommand creates and configures a terraform command with proper environment
+func (b *Benchmark) setupTerraformCommand(command []string, outputFile *os.File, useDevOverride bool) *exec.Cmd {
+	cmd := exec.Command(command[0], command[1:]...)
+	cmd.Stdout = outputFile
+	cmd.Stderr = outputFile
+	cmd.Dir = b.TfConfigDir
+
+	if !useDevOverride {
+		return cmd
+	}
+
+	// checking if file exists
+	if _, err := os.Stat(b.TerraformRcFilePath); os.IsNotExist(err) {
+		b.logMessage(LogLevelDebug, "terraformrc file does not exist where we expect it to")
+	}
+
+	// Set TF_CLI_CONFIG_FILE to b.TerraformRcFilePath
+	b.logMessage(LogLevelDebug, "Setting TF_CLI_CONFIG_FILE to "+b.TerraformRcFilePath)
+	env := os.Environ()
+	env = append(env, "TF_CLI_CONFIG_FILE="+b.TerraformRcFilePath)
+	cmd.Env = env
+
+	return cmd
+}
+
+func (b *Benchmark) initialiseTerraform() error {
+	command := []string{"terraform", "init"}
+	b.logMessage(LogLevelInfo, "Running %v in directory %s", command, b.TfConfigDir)
+
+	outputFile, err := os.OpenFile(b.initLogFilePath, os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open output file: %v", err)
+	}
+	defer outputFile.Close()
+
+	cmd := b.setupTerraformCommand(command, outputFile, false)
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("terraform init failed: %v", err)
+	}
+
+	return nil
+}
+
 // runTerraformCommand executes terraform command and captures output
 func (b *Benchmark) runTerraformCommand(reference string) error {
 	outputFileName := b.generateLogFilePath(reference)
@@ -121,21 +164,7 @@ func (b *Benchmark) runTerraformCommand(reference string) error {
 		return fmt.Errorf("invalid command: %s", string(b.TfCommand))
 	}
 
-	cmd := exec.Command(commandParts[0], commandParts[1:]...)
-	cmd.Stdout = outputFile
-	cmd.Stderr = outputFile
-	cmd.Dir = b.TfConfigDir
-
-	// checking if file exists
-	if _, err := os.Stat(b.TerraformRcFilePath); os.IsNotExist(err) {
-		return fmt.Errorf("terraformrc file does not exist where we expect it to")
-	}
-
-	// Set TF_CLI_CONFIG_FILE to b.TerraformRcFilePath
-	b.logMessage(LogLevelDebug, "Setting TF_CLI_CONFIG_FILE to "+b.TerraformRcFilePath)
-	env := os.Environ()
-	env = append(env, "TF_CLI_CONFIG_FILE="+b.TerraformRcFilePath)
-	cmd.Env = env
+	cmd := b.setupTerraformCommand(commandParts, outputFile, true)
 
 	b.logMessage(LogLevelInfo, "Running %s for version %s in directory %s", string(b.TfCommand), reference, b.TfConfigDir)
 	if err := cmd.Run(); err != nil {
@@ -186,6 +215,13 @@ func (b *Benchmark) createOutputDirectories() error {
 	}
 	file.Close()
 
+	// Create init.log file
+	file, err = os.Create(b.initLogFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to create init log file: %w", err)
+	}
+	file.Close()
+
 	b.logMessage(LogLevelInfo, "Output directories and files created")
 	return nil
 }
@@ -222,10 +258,7 @@ func (b *Benchmark) destroy() error {
 	}
 	defer outputFile.Close()
 
-	cmd := exec.Command(command[0], command[1:]...)
-	cmd.Stdout = outputFile
-	cmd.Stderr = outputFile
-	cmd.Dir = b.TfConfigDir
+	cmd := b.setupTerraformCommand(command, outputFile, true)
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("destroy failed: %v", err)

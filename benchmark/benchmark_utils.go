@@ -9,6 +9,7 @@ import (
 const (
 	destroyLogFileName      = "destroy.log"
 	performanceDataFileName = "data.json"
+	initLogFileName         = "init.log"
 )
 
 // configureDefaults sets the default values for the benchmark
@@ -33,6 +34,7 @@ func (b *Benchmark) configureOutputPaths() {
 	b.performanceDir = filepath.Join(".", b.OutputDir, "performance")
 	b.destroyLogFilePath = filepath.Join(b.logsDir, destroyLogFileName)
 	b.performanceFilePath = filepath.Join(b.performanceDir, performanceDataFileName)
+	b.initLogFilePath = filepath.Join(b.logsDir, initLogFileName)
 }
 
 // validate validates the benchmark configuration
