@@ -142,6 +142,7 @@ func (b *Benchmark) runTerraformCommand(reference string) error {
 	cmd := exec.Command(commandParts[0], commandParts[1:]...)
 	cmd.Stdout = outputFile
 	cmd.Stderr = outputFile
+	cmd.Dir = b.TfConfigDir
 
 	// checking if file exists
 	if _, err := os.Stat(b.TerraformRcFilePath); os.IsNotExist(err) {
@@ -154,7 +155,7 @@ func (b *Benchmark) runTerraformCommand(reference string) error {
 	env = append(env, "TF_CLI_CONFIG_FILE="+b.TerraformRcFilePath)
 	cmd.Env = env
 
-	b.logMessage(LogLevelInfo, "Running %s for version %s", string(b.TfCommand), reference)
+	b.logMessage(LogLevelInfo, "Running %s for version %s in directory %s", string(b.TfCommand), reference, b.TfConfigDir)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("terraform command failed: %w", err)
 	}
@@ -218,7 +219,7 @@ func (b *Benchmark) makeSideload(ref string) (err error) {
 // destroy runs terraform destroy with optional confirmation
 func (b *Benchmark) destroy() error {
 	command := []string{"terraform", "destroy", "--auto-approve"}
-	b.logMessage(LogLevelInfo, "Running %v", command)
+	b.logMessage(LogLevelInfo, "Running %v in directory %s", command, b.TfConfigDir)
 
 	outputFileName := filepath.Join(b.logsDir, "destroy.log")
 
@@ -237,6 +238,7 @@ func (b *Benchmark) destroy() error {
 	cmd := exec.Command(command[0], command[1:]...)
 	cmd.Stdout = outputFile
 	cmd.Stderr = outputFile
+	cmd.Dir = b.TfConfigDir
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("destroy failed: %v", err)
@@ -252,6 +254,9 @@ func (b *Benchmark) configureDefaults() {
 	}
 	if b.TerraformRcFilePath == "" {
 		b.TerraformRcFilePath = "./.terraformrc"
+	}
+	if b.TfConfigDir == "" {
+		b.TfConfigDir = "."
 	}
 }
 

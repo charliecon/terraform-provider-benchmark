@@ -40,6 +40,9 @@ type Benchmark struct {
 	// OutputDir is the directory to write the output to (Defaults to "output")
 	OutputDir string
 
+	// TfConfigDir is the directory containing the Terraform configuration to run commands against (Defaults to current working directory)
+	TfConfigDir string
+
 	logsDir        string
 	performanceDir string
 }
