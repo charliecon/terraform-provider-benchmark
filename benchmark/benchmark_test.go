@@ -490,7 +490,6 @@ func TestCommand_String(t *testing.T) {
 		expected string
 	}{
 		{Apply, "terraform apply --auto-approve"},
-		{Destroy, "terraform destroy --auto-approve"},
 		{Init, "terraform init"},
 		{Plan, "terraform plan"},
 	}

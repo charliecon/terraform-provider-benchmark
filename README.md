@@ -77,7 +77,7 @@ import (
 func main() {
     // Define the benchmark configuration
     b := &benchmark.Benchmark{
-        TfCommand: benchmark.Plan, // or benchmark.Apply, benchmark.Init, benchmark.Destroy
+        TfCommand: benchmark.Plan, // or benchmark.Apply, benchmark.Init
         References: []string{
             "main",    // branch name
             "v1.66.0", // tag
@@ -160,7 +160,6 @@ The benchmark supports the following Terraform commands:
 - `benchmark.Plan` - Runs `terraform plan`
 - `benchmark.Apply` - Runs `terraform apply --auto-approve`
 - `benchmark.Init` - Runs `terraform init`
-- `benchmark.Destroy` - Runs `terraform destroy --auto-approve`
 
 ### Running the Benchmark
 
@@ -181,7 +180,7 @@ The benchmark will create the following directory structure:
 │   ├── performance/
 │   │   └── data.json          # Timing results in JSON format
 │   └── logs/
-│       ├── destroy.log        # Destroy command output
+│       ├── destroy.log        # Terraform destroy cleanup output
 │       ├── init.log          # Terraform init command output
 │       ├── main.log          # Log for 'main' reference
 │       ├── v1.66.0.log       # Log for 'v1.66.0' reference
@@ -219,7 +218,7 @@ The `data.json` file contains timing results in the following format:
 3. **Iteration**: For each reference (commit/branch/tag):
    - Checks out the specified reference in the provider repository
    - Runs `make sideload` to build and install the provider
-   - Runs `terraform destroy` to clean up any existing state (with optional confirmation)
+   - Runs `terraform destroy` to clean up any existing state before testing (with optional confirmation)
    - Executes the specified Terraform command and measures execution time
    - Records the results
 4. **Output**: Saves timing data to JSON file and logs to individual files
