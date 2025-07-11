@@ -21,28 +21,22 @@ func TestBenchmark_configureDefaults(t *testing.T) {
 				ProjectPath: "/test/path",
 			},
 			expected: &Benchmark{
-				References:          []string{"test"},
-				ProjectPath:         "/test/path",
-				OutputDir:           "output",
-				TerraformRcFilePath: "./.terraformrc",
-				TfConfigDir:         ".",
+				References:  []string{"test"},
+				ProjectPath: "/test/path",
+				OutputDir:   "output",
 			},
 		},
 		{
-			name: "custom values",
+			name: "custom output directory",
 			benchmark: &Benchmark{
-				References:          []string{"test"},
-				ProjectPath:         "/test/path",
-				OutputDir:           "custom-output",
-				TerraformRcFilePath: "/custom/.terraformrc",
-				TfConfigDir:         "/custom/config",
+				References:  []string{"test"},
+				ProjectPath: "/test/path",
+				OutputDir:   "custom-output",
 			},
 			expected: &Benchmark{
-				References:          []string{"test"},
-				ProjectPath:         "/test/path",
-				OutputDir:           "custom-output",
-				TerraformRcFilePath: "/custom/.terraformrc",
-				TfConfigDir:         "/custom/config",
+				References:  []string{"test"},
+				ProjectPath: "/test/path",
+				OutputDir:   "custom-output",
 			},
 		},
 	}
@@ -53,12 +47,6 @@ func TestBenchmark_configureDefaults(t *testing.T) {
 
 			if tt.benchmark.OutputDir != tt.expected.OutputDir {
 				t.Errorf("OutputDir = %v, want %v", tt.benchmark.OutputDir, tt.expected.OutputDir)
-			}
-			if tt.benchmark.TerraformRcFilePath != tt.expected.TerraformRcFilePath {
-				t.Errorf("TerraformRcFilePath = %v, want %v", tt.benchmark.TerraformRcFilePath, tt.expected.TerraformRcFilePath)
-			}
-			if tt.benchmark.TfConfigDir != tt.expected.TfConfigDir {
-				t.Errorf("TfConfigDir = %v, want %v", tt.benchmark.TfConfigDir, tt.expected.TfConfigDir)
 			}
 		})
 	}
@@ -95,6 +83,25 @@ func TestBenchmark_configureOutputPaths(t *testing.T) {
 }
 
 func TestBenchmark_validate(t *testing.T) {
+	// Create temporary files for testing
+	tempDir, err := os.MkdirTemp("", "benchmark_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	terraformrcPath := filepath.Join(tempDir, ".terraformrc")
+	err = os.WriteFile(terraformrcPath, []byte("test content"), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create terraformrc file: %v", err)
+	}
+
+	tfConfigDir := filepath.Join(tempDir, "config")
+	err = os.Mkdir(tfConfigDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create config directory: %v", err)
+	}
+
 	tests := []struct {
 		name      string
 		benchmark *Benchmark
@@ -104,17 +111,21 @@ func TestBenchmark_validate(t *testing.T) {
 		{
 			name: "valid configuration",
 			benchmark: &Benchmark{
-				TfCommand:   Plan,
-				References:  []string{"test"},
-				ProjectPath: "/test/path",
+				TfCommand:           Plan,
+				References:          []string{"test"},
+				ProjectPath:         "/test/path",
+				TerraformRcFilePath: terraformrcPath,
+				TfConfigDir:         tfConfigDir,
 			},
 			wantErr: false,
 		},
 		{
 			name: "missing terraform command",
 			benchmark: &Benchmark{
-				References:  []string{"test"},
-				ProjectPath: "/test/path",
+				References:          []string{"test"},
+				ProjectPath:         "/test/path",
+				TerraformRcFilePath: terraformrcPath,
+				TfConfigDir:         tfConfigDir,
 			},
 			wantErr: true,
 			errMsg:  "terraform command is required",
@@ -122,8 +133,10 @@ func TestBenchmark_validate(t *testing.T) {
 		{
 			name: "missing references",
 			benchmark: &Benchmark{
-				TfCommand:   Plan,
-				ProjectPath: "/test/path",
+				TfCommand:           Plan,
+				ProjectPath:         "/test/path",
+				TerraformRcFilePath: terraformrcPath,
+				TfConfigDir:         tfConfigDir,
 			},
 			wantErr: true,
 			errMsg:  "at least one reference is required",
@@ -131,11 +144,59 @@ func TestBenchmark_validate(t *testing.T) {
 		{
 			name: "missing project path",
 			benchmark: &Benchmark{
-				TfCommand:  Plan,
-				References: []string{"test"},
+				TfCommand:           Plan,
+				References:          []string{"test"},
+				TerraformRcFilePath: terraformrcPath,
+				TfConfigDir:         tfConfigDir,
 			},
 			wantErr: true,
 			errMsg:  "project path is required",
+		},
+		{
+			name: "missing terraformrc file path",
+			benchmark: &Benchmark{
+				TfCommand:   Plan,
+				References:  []string{"test"},
+				ProjectPath: "/test/path",
+				TfConfigDir: tfConfigDir,
+			},
+			wantErr: true,
+			errMsg:  "terraformrc file path is required",
+		},
+		{
+			name: "missing terraform config directory",
+			benchmark: &Benchmark{
+				TfCommand:           Plan,
+				References:          []string{"test"},
+				ProjectPath:         "/test/path",
+				TerraformRcFilePath: terraformrcPath,
+			},
+			wantErr: true,
+			errMsg:  "terraform config directory is required",
+		},
+		{
+			name: "terraformrc file does not exist",
+			benchmark: &Benchmark{
+				TfCommand:           Plan,
+				References:          []string{"test"},
+				ProjectPath:         "/test/path",
+				TerraformRcFilePath: "/nonexistent/terraformrc",
+				TfConfigDir:         tfConfigDir,
+			},
+			wantErr: true,
+			errMsg:  "terraformrc file does not exist at",
+		},
+		{
+			name: "terraform config directory does not exist",
+			benchmark: &Benchmark{
+				TfCommand:           Plan,
+				References:          []string{"test"},
+				ProjectPath:         "/test/path",
+				TerraformRcFilePath: terraformrcPath,
+				TfConfigDir:         "/nonexistent/config",
+			},
+			wantErr: true,
+			errMsg:  "terraform config directory does not exist at",
 		},
 	}
 
@@ -463,15 +524,33 @@ func TestLogLevel_String(t *testing.T) {
 
 // Test helper function to create a temporary benchmark configuration
 func createTestBenchmark() *Benchmark {
+	// Create temporary files for testing
+	tempDir, err := os.MkdirTemp("", "benchmark_test")
+	if err != nil {
+		panic("Failed to create temp dir for test")
+	}
+
+	terraformrcPath := filepath.Join(tempDir, ".terraformrc")
+	err = os.WriteFile(terraformrcPath, []byte("test content"), 0644)
+	if err != nil {
+		panic("Failed to create terraformrc file for test")
+	}
+
+	tfConfigDir := filepath.Join(tempDir, "config")
+	err = os.Mkdir(tfConfigDir, 0755)
+	if err != nil {
+		panic("Failed to create config directory for test")
+	}
+
 	return &Benchmark{
-		TfCommand:           Plan,
-		References:          []string{"v1.0.0", "main"},
-		ProjectPath:         "/test/project/path",
-		RequireConfirmation: false,
-		LogLevel:            LogLevelInfo,
-		OutputDir:           "test-output",
-		TerraformRcFilePath: "./.terraformrc",
-		TfConfigDir:         ".",
+		TfCommand:               Plan,
+		References:              []string{"v1.0.0", "main"},
+		ProjectPath:             "/test/project/path",
+		SkipDestroyConfirmation: false,
+		LogLevel:                LogLevelInfo,
+		OutputDir:               "test-output",
+		TerraformRcFilePath:     terraformrcPath,
+		TfConfigDir:             tfConfigDir,
 	}
 }
 

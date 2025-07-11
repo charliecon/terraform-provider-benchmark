@@ -42,7 +42,7 @@ cd terraform-provider-genesyscloud
 
 ### 2. Configure Terraform
 
-Create a `terraformrc` file in your working directory (where you'll run the benchmark) with the following content:
+Create a `.terraformrc` file with the following content:
 
 ```hcl
 provider_installation {
@@ -56,13 +56,7 @@ provider_installation {
 
 ### 3. Prepare Your Terraform Configuration
 
-Place your Terraform configuration files (`.tf` files) in the same directory where you'll run the benchmark. This directory should contain:
-
-- Your Terraform configuration files (e.g., `main.tf`, `variables.tf`, etc.)
-    - Ensure your Genesys Cloud client credentials are set via environment variables or the provider block. 
-    For more guidance see [the README of terraform-provider-genesyscloud](https://github.com/MyPureCloud/terraform-provider-genesyscloud)
-- The `.terraformrc` file (from step 2)
-- The Go file that imports and uses the benchmark package
+Place your Terraform configuration files (`.tf` files) in a directory that you'll reference in your benchmark configuration.
 
 ## Usage
 
@@ -85,14 +79,15 @@ func main() {
     b := &benchmark.Benchmark{
         TfCommand: benchmark.Plan, // or benchmark.Apply, benchmark.Init, benchmark.Destroy
         References: []string{
-            "main",           // branch name
-            "v1.66.0",        // tag
-            "abc1234",       // commit hash
+            "main",    // branch name
+            "v1.66.0", // tag
+            "abc1234", // commit hash
         },
         ProjectPath: "/absolute/path/to/your/terraform-provider-genesyscloud",
-        RequireConfirmation: true,  // Ask for confirmation before destructive operations
-        LogLevel: benchmark.LogLevelInfo,  // Set logging verbosity
-        TfConfigDir: "full/path/to/terraform_config/folder",
+        SkipDestroyConfirmation: false, // Default: requires confirmation before destructive operations
+        LogLevel: benchmark.LogLevelInfo, // Set logging verbosity
+        TfConfigDir: "/full/path/to/terraform_config/folder", // Directory containing your Terraform configuration
+        TerraformRcFilePath: "/full/path/to/.terraformrc", // Path to your .terraformrc file
     }
     
     // Run the benchmark
@@ -104,23 +99,33 @@ func main() {
 
 ### Configuration Options
 
-#### TfConfigDir
-Specify a custom directory containing your Terraform configuration files. If not provided, defaults to the current working directory.
+#### TfConfigDir (Required)
+Specify the directory containing your Terraform configuration files. This is a required field.
 
 ```go
 b := &benchmark.Benchmark{
     // ... other fields ...
-    TfConfigDir: "/full/path/to/your/terraform/config",  // Custom Terraform config directory
+    TfConfigDir: "/full/path/to/your/terraform/config",  // Required: Terraform config directory
 }
 ```
 
-#### RequireConfirmation
-When set to `true`, the benchmark will prompt for user confirmation before running destructive operations like `terraform destroy`. This helps prevent accidental data loss.
+#### TerraformRcFilePath (Required)
+Specify the path to your `.terraformrc` file. This is a required field.
 
 ```go
 b := &benchmark.Benchmark{
     // ... other fields ...
-    RequireConfirmation: true,  // Will prompt before destroy operations
+    TerraformRcFilePath: "/full/path/to/.terraformrc",  // Required: terraformrc file location
+}
+```
+
+#### SkipDestroyConfirmation
+Controls whether to skip user confirmation for destructive operations. Defaults to `false` (require confirmation). Set to `true` to skip manual confirmation before running destructive operations like `terraform destroy`.
+
+```go
+b := &benchmark.Benchmark{
+    // ... other fields ...
+    SkipDestroyConfirmation: true,  // Will skip confirmation prompts
 }
 ```
 
@@ -135,16 +140,6 @@ Control the verbosity of logging output:
 b := &benchmark.Benchmark{
     // ... other fields ...
     LogLevel: benchmark.LogLevelDebug,  // Verbose logging
-}
-```
-
-#### TerraformRcFilePath
-Specify a custom path to your `.terraformrc` file. If not provided, defaults to `./.terraformrc`.
-
-```go
-b := &benchmark.Benchmark{
-    // ... other fields ...
-    TerraformRcFilePath: "/full/path/to/.terraformrc",  // Custom terraformrc location
 }
 ```
 
@@ -169,7 +164,7 @@ The benchmark supports the following Terraform commands:
 
 ### Running the Benchmark
 
-1. Ensure you're in the directory containing your Terraform files and the Go file
+1. Ensure you have configured all required fields in your benchmark configuration
 2. Run the benchmark:
 
 ```bash
@@ -231,13 +226,13 @@ The `data.json` file contains timing results in the following format:
 
 ## Safety Features
 
-- **Confirmation Prompts**: When `RequireConfirmation` is enabled, the tool will ask for confirmation before running destructive operations
+- **Confirmation Prompts**: By default, the tool will ask for confirmation before running destructive operations. Set `SkipDestroyConfirmation: true` to skip confirmation prompts.
 - **Structured Logging**: All operations are logged with appropriate levels for better debugging
 - **Progress Tracking**: Shows progress through references being tested
 
 ## Notes
 
-- The tool expects a `terraformrc` file in the current working directory (or custom path specified)
+- The tool requires a `terraformrc` file path to be specified via `TerraformRcFilePath`
 - Each benchmark run will destroy any existing Terraform state before testing (unless cancelled)
 - The provider repository will be switched between different references during testing
 - All Terraform command output is logged to individual files for debugging

@@ -2,6 +2,7 @@ package benchmark
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -21,12 +22,6 @@ func (b *Benchmark) configureDefaults() {
 	if b.OutputDir == "" {
 		b.OutputDir = "output"
 	}
-	if b.TerraformRcFilePath == "" {
-		b.TerraformRcFilePath = "./.terraformrc"
-	}
-	if b.TfConfigDir == "" {
-		b.TfConfigDir = "."
-	}
 }
 
 // setDefaults sets the default values for the benchmark
@@ -41,18 +36,35 @@ func (b *Benchmark) configureOutputPaths() {
 	b.initLogFilePath = filepath.Join(b.logsDir, initLogFileName)
 }
 
-// validate validates the benchmark configuration
+// validate the benchmark configuration
 func (b *Benchmark) validate() error {
 	b.logMessage(LogLevelInfo, "Validating benchmark configuration")
+
+	if b.RequireConfirmation {
+		b.logMessage(LogLevelInfo, "⚠️ RequireConfirmation is deprecated and has no effect. Use SkipDestroyConfirmation instead.")
+	}
 	if b.TfCommand == "" {
-		return fmt.Errorf("terraform command is required")
+		return errors.New("terraform command is required")
 	}
 	if len(b.References) == 0 {
-		return fmt.Errorf("at least one reference is required")
+		return errors.New("at least one reference is required")
 	}
 	if b.ProjectPath == "" {
-		return fmt.Errorf("project path is required")
+		return errors.New("project path is required")
 	}
+	if b.TerraformRcFilePath == "" {
+		return errors.New("terraformrc file path is required")
+	}
+	if _, err := os.Stat(b.TerraformRcFilePath); os.IsNotExist(err) {
+		return fmt.Errorf("terraformrc file does not exist at %s", b.TerraformRcFilePath)
+	}
+	if b.TfConfigDir == "" {
+		return errors.New("terraform config directory is required")
+	}
+	if _, err := os.Stat(b.TfConfigDir); os.IsNotExist(err) {
+		return fmt.Errorf("terraform config directory does not exist at %s", b.TfConfigDir)
+	}
+
 	return nil
 }
 
@@ -112,7 +124,7 @@ func (b *Benchmark) logMessage(level LogLevel, format string, args ...interface{
 
 // confirmDestructiveOperation prompts the user for confirmation before destructive operations
 func (b *Benchmark) confirmDestructiveOperation() error {
-	if !b.RequireConfirmation {
+	if b.SkipDestroyConfirmation {
 		return nil
 	}
 
