@@ -50,15 +50,8 @@ func (b *Benchmark) confirmDestructiveOperation() error {
 
 // writeDataToFile writes collected timing data to JSON file
 func (b *Benchmark) writeDataToFile(data []PlanDetails) error {
-	var dataFilePath = filepath.Join(".", b.OutputDir, "performance", "data.json")
+	var dataFilePath = filepath.Join(b.performanceDir, "data.json")
 	b.logMessage(LogLevelInfo, "Writing data to %s", dataFilePath)
-
-	// Create the parent directory for the data file
-	// Ensure directory exists
-	dir := filepath.Dir(dataFilePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory %s: %v", dir, err)
-	}
 
 	jsonData, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
@@ -81,15 +74,12 @@ func (b *Benchmark) testReferences() error {
 	for i, ref := range b.References {
 		b.logMessage(LogLevelInfo, "Starting benchmark for reference %s (%d/%d)", ref, i+1, len(b.References))
 
-		if err := b.destroy(); err != nil {
-			return fmt.Errorf("destroy failed: %v", err)
-		}
-
-		b.logMessage(LogLevelDebug, "Sleeping for 1 second...")
-		time.Sleep(1 * time.Second)
-
 		if err := b.makeSideload(ref); err != nil {
 			return err
+		}
+
+		if err := b.destroy(); err != nil {
+			return fmt.Errorf("destroy failed: %v", err)
 		}
 
 		// Time the execution of terraform command
@@ -116,20 +106,12 @@ func (b *Benchmark) testReferences() error {
 
 // runTerraformCommand executes terraform command and captures output
 func (b *Benchmark) runTerraformCommand(reference string) error {
-	logFileName := strings.ReplaceAll(reference, ".", "_")
-	outputFileName := filepath.Join(".", b.OutputDir, "logs", fmt.Sprintf("%s.log", logFileName))
+	outputFileName := b.generateLogFilePath(reference)
 
-	// Create the parent directory for the log file
-	dir := filepath.Dir(outputFileName)
-	b.logMessage(LogLevelDebug, "Creating directory %s", dir)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory %s: %v", dir, err)
-	}
-
-	b.logMessage(LogLevelDebug, "Creating output file %s", outputFileName)
-	outputFile, err := os.Create(outputFileName)
+	b.logMessage(LogLevelDebug, "Opening output file %s", outputFileName)
+	outputFile, err := os.OpenFile(outputFileName, os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to create output file: %v", err)
+		return fmt.Errorf("failed to open output file: %v", err)
 	}
 	defer outputFile.Close()
 
@@ -164,7 +146,7 @@ func (b *Benchmark) runTerraformCommand(reference string) error {
 	return nil
 }
 
-// createDirectories creates output directories if they don't exist
+// createOutputDirectories creates output directories and placeholder files
 func (b *Benchmark) createOutputDirectories() error {
 	b.logMessage(LogLevelInfo, "Creating output directories")
 	directories := []string{
@@ -178,14 +160,38 @@ func (b *Benchmark) createOutputDirectories() error {
 		}
 	}
 
-	b.logMessage(LogLevelInfo, "Output directories created")
+	b.logMessage(LogLevelInfo, "Creating output files")
+
+	// Create placeholder files for all expected log files
+	for _, ref := range b.References {
+		// Create or truncate the file
+		file, err := os.Create(b.generateLogFilePath(ref))
+		if err != nil {
+			return fmt.Errorf("failed to create log file %s: %w", b.generateLogFilePath(ref), err)
+		}
+		file.Close()
+	}
+
+	// Create destroy.log file
+	file, err := os.Create(b.destroyLogFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to create destroy log file: %w", err)
+	}
+	file.Close()
+
+	// Create data.json file
+	file, err = os.Create(b.performanceFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to create data file: %w", err)
+	}
+	file.Close()
+
+	b.logMessage(LogLevelInfo, "Output directories and files created")
 	return nil
 }
 
 // makeSideload checks out the specified ref and runs make sideload
 func (b *Benchmark) makeSideload(ref string) (err error) {
-	const devBranchName = "dev"
-
 	b.logMessage(LogLevelInfo, "Checking out reference %s in %s", ref, b.ProjectPath)
 	// Checkout specific hash
 	cmd := exec.Command("git", "checkout", ref)
@@ -202,17 +208,6 @@ func (b *Benchmark) makeSideload(ref string) (err error) {
 		return fmt.Errorf("make sideload failed: %w", err)
 	}
 
-	// If not dev branch, checkout dev branch
-	if ref != devBranchName {
-		b.logMessage(LogLevelDebug, "Checking out dev branch after sideload")
-		// Checkout dev branch
-		cmd = exec.Command("git", "checkout", devBranchName)
-		cmd.Dir = b.ProjectPath
-		if err = cmd.Run(); err != nil {
-			return fmt.Errorf("git checkout %s failed: %w", devBranchName, err)
-		}
-	}
-
 	return err
 }
 
@@ -221,17 +216,9 @@ func (b *Benchmark) destroy() error {
 	command := []string{"terraform", "destroy", "--auto-approve"}
 	b.logMessage(LogLevelInfo, "Running %v in directory %s", command, b.TfConfigDir)
 
-	outputFileName := filepath.Join(b.logsDir, "destroy.log")
-
-	// Ensure directory exists
-	dir := filepath.Dir(outputFileName)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory %s: %v", dir, err)
-	}
-
-	outputFile, err := os.Create(outputFileName)
+	outputFile, err := os.OpenFile(b.destroyLogFilePath, os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to create output file: %v", err)
+		return fmt.Errorf("failed to open output file: %v", err)
 	}
 	defer outputFile.Close()
 
@@ -245,52 +232,6 @@ func (b *Benchmark) destroy() error {
 	}
 
 	b.logMessage(LogLevelInfo, "Destroy successful")
-	return nil
-}
-
-func (b *Benchmark) configureDefaults() {
-	if b.OutputDir == "" {
-		b.OutputDir = "output"
-	}
-	if b.TerraformRcFilePath == "" {
-		b.TerraformRcFilePath = "./.terraformrc"
-	}
-	if b.TfConfigDir == "" {
-		b.TfConfigDir = "."
-	}
-}
-
-// setDefaults sets the default values for the benchmark
-func (b *Benchmark) configureOutputDirectories() {
-	if b.OutputDir == "" {
-		b.OutputDir = "output"
-	}
-	b.logsDir = filepath.Join(".", b.OutputDir, "logs")
-	b.performanceDir = filepath.Join(".", b.OutputDir, "performance")
-}
-
-func (b *Benchmark) validate() error {
-	b.logMessage(LogLevelInfo, "Validating benchmark configuration")
-	if b.TfCommand == "" {
-		return fmt.Errorf("terraform command is required")
-	}
-	if len(b.References) == 0 {
-		return fmt.Errorf("at least one reference is required")
-	}
-	if b.ProjectPath == "" {
-		return fmt.Errorf("project path is required")
-	}
-	return nil
-}
-
-func (b *Benchmark) setupConfiguration() error {
-	if err := b.validate(); err != nil {
-		return fmt.Errorf("validation failed: %w", err)
-	}
-
-	b.logMessage(LogLevelInfo, "Configuring benchmark default values")
-	b.configureDefaults()
-	b.configureOutputDirectories()
 	return nil
 }
 

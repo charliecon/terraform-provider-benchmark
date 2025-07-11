@@ -43,8 +43,10 @@ type Benchmark struct {
 	// TfConfigDir is the directory containing the Terraform configuration to run commands against (Defaults to current working directory)
 	TfConfigDir string
 
-	logsDir        string
-	performanceDir string
+	logsDir             string
+	performanceDir      string
+	performanceFilePath string
+	destroyLogFilePath  string
 }
 
 // PlanDetails stores details about each Terraform plan execution
