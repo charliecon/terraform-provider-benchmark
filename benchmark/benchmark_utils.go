@@ -124,10 +124,6 @@ func (b *Benchmark) logMessage(level LogLevel, format string, args ...interface{
 
 // confirmDestructiveOperation prompts the user for confirmation before destructive operations
 func (b *Benchmark) confirmDestructiveOperation() error {
-	if b.SkipDestroyConfirmation {
-		return nil
-	}
-
 	fmt.Printf("\n⚠️  WARNING: About to run destructive terraform operation\n")
 	fmt.Printf("This will destroy any existing Terraform state.\n")
 	fmt.Printf("Are you sure you want to continue? (yes/no): ")
@@ -145,4 +141,8 @@ func (b *Benchmark) confirmDestructiveOperation() error {
 
 	fmt.Println("✅ Confirmed. Proceeding with operation...")
 	return nil
+}
+
+func (b *Benchmark) shouldSkipConfirmationOfDestructiveOperations() bool {
+	return b.SkipDestroyConfirmation || b.TfCommand == Plan
 }

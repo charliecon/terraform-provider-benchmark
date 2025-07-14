@@ -21,8 +21,10 @@ func (b *Benchmark) testReferences() error {
 			return err
 		}
 
-		if err := b.destroy(); err != nil {
-			return fmt.Errorf("destroy failed: %v", err)
+		if b.TfCommand != Plan {
+			if err := b.destroy(); err != nil {
+				return fmt.Errorf("destroy failed: %v", err)
+			}
 		}
 
 		// Time the execution of terraform command
@@ -58,8 +60,10 @@ func (b *Benchmark) Run() (err error) {
 		return fmt.Errorf("failed to create output directories: %w", err)
 	}
 
-	if err = b.confirmDestructiveOperation(); err != nil {
-		return fmt.Errorf("failed to confirm destructive operation: %w", err)
+	if !b.shouldSkipConfirmationOfDestructiveOperations() {
+		if err = b.confirmDestructiveOperation(); err != nil {
+			return fmt.Errorf("failed to confirm destructive operation: %w", err)
+		}
 	}
 
 	if err = b.testReferences(); err != nil {
