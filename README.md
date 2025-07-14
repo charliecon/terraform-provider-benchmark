@@ -77,17 +77,17 @@ import (
 func main() {
     // Define the benchmark configuration
     b := &benchmark.Benchmark{
-        TfCommand: benchmark.Plan, // or benchmark.Apply, benchmark.Init
+        TfCommand:  benchmark.Plan, // or benchmark.Apply, benchmark.Init
         References: []string{
             "main",    // branch name
             "v1.66.0", // tag
             "abc1234", // commit hash
         },
-        ProjectPath: "/absolute/path/to/your/terraform-provider-genesyscloud",
+        ProjectPath:             "/absolute/path/to/your/terraform-provider-genesyscloud",
         SkipDestroyConfirmation: false, // Default: requires confirmation before destructive operations
-        LogLevel: benchmark.LogLevelInfo, // Set logging verbosity
-        TfConfigDir: "/full/path/to/terraform_config/folder", // Directory containing your Terraform configuration
-        TerraformRcFilePath: "/full/path/to/.terraformrc", // Path to your .terraformrc file
+        LogLevel:                benchmark.LogLevelInfo, // Set logging verbosity
+        TfConfigDir:             "./path/to/terraform_config", // Directory containing your Terraform configuration
+        TerraformRcFilePath:     "./path/to/.terraformrc", // Path to your .terraformrc file
     }
     
     // Run the benchmark
@@ -115,7 +115,7 @@ Specify the path to your `.terraformrc` file. This is a required field.
 ```go
 b := &benchmark.Benchmark{
     // ... other fields ...
-    TerraformRcFilePath: "/full/path/to/.terraformrc",  // Required: terraformrc file location
+    TerraformRcFilePath: "/full/path/to/.terraformrc",  // Required: .terraformrc file location
 }
 ```
 
@@ -185,8 +185,6 @@ The benchmark will create the following directory structure:
 │       ├── main.log          # Log for 'main' reference
 │       ├── v1.66.0.log       # Log for 'v1.66.0' reference
 │       └── abc1234.log      # Log for 'abc1234' reference
-├── terraformrc               # Your Terraform configuration
-├── main.tf                   # Your Terraform configuration
 └── main.go                   # Your benchmark script
 ```
 
@@ -231,7 +229,7 @@ The `data.json` file contains timing results in the following format:
 
 ## Notes
 
-- The tool requires a `terraformrc` file path to be specified via `TerraformRcFilePath`
+- The tool requires a `.terraformrc` file path to be specified via `TerraformRcFilePath`
 - Each benchmark run will destroy any existing Terraform state before testing (unless cancelled)
 - The provider repository will be switched between different references during testing
 - All Terraform command output is logged to individual files for debugging
