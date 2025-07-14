@@ -216,7 +216,7 @@ The `data.json` file contains timing results in the following format:
 3. **Iteration**: For each reference (commit/branch/tag):
    - Checks out the specified reference in the provider repository
    - Runs `make sideload` to build and install the provider
-   - Runs `terraform destroy` to clean up any existing state before testing (with optional confirmation)
+   - Runs `terraform destroy` to clean up any existing state before testing (with optional confirmation, skipped for `terraform plan`)
    - Executes the specified Terraform command and measures execution time
    - Records the results
 4. **Output**: Saves timing data to JSON file and logs to individual files
@@ -230,7 +230,7 @@ The `data.json` file contains timing results in the following format:
 ## Notes
 
 - The tool requires a `.terraformrc` file path to be specified via `TerraformRcFilePath`
-- Each benchmark run will destroy any existing Terraform state before testing (unless cancelled)
+- Each benchmark run will destroy any existing Terraform state before testing (unless cancelled, or when running `terraform plan`)
 - The provider repository will be switched between different references during testing
 - All Terraform command output is logged to individual files for debugging
 - The benchmark automatically initializes Terraform before running commands. This means you should have a provider block set up in your tf configuration.
