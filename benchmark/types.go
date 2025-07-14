@@ -57,8 +57,8 @@ type Benchmark struct {
 	initLogFilePath     string
 }
 
-// PlanDetails stores details about each Terraform plan execution
-type PlanDetails struct {
+// commandResult stores details about each Terraform command execution
+type commandResult struct {
 	Version  string  `json:"version"`
 	Duration float64 `json:"duration"`
 }
