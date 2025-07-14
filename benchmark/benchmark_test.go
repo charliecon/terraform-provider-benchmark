@@ -263,7 +263,7 @@ func TestBenchmark_writeDataToFile(t *testing.T) {
 		performanceDir: tempDir,
 	}
 
-	testData := []PlanDetails{
+	testData := []commandResult{
 		{Version: "v1.0.0", Duration: 10.5},
 		{Version: "v1.1.0", Duration: 9.8},
 		{Version: "main", Duration: 11.2},
@@ -286,7 +286,7 @@ func TestBenchmark_writeDataToFile(t *testing.T) {
 		t.Fatalf("Failed to read data.json: %v", err)
 	}
 
-	var result []PlanDetails
+	var result []commandResult
 	err = json.Unmarshal(content, &result)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal JSON: %v", err)
@@ -459,28 +459,28 @@ func TestBenchmark_logMessage(t *testing.T) {
 	}
 }
 
-func TestPlanDetails_JSON(t *testing.T) {
-	plan := PlanDetails{
+func TestCommandResult_JSON(t *testing.T) {
+	result := commandResult{
 		Version:  "v1.0.0",
 		Duration: 10.5,
 	}
 
-	data, err := json.Marshal(plan)
+	data, err := json.Marshal(result)
 	if err != nil {
-		t.Fatalf("Failed to marshal PlanDetails: %v", err)
+		t.Fatalf("Failed to marshal commandResult: %v", err)
 	}
 
-	var result PlanDetails
-	err = json.Unmarshal(data, &result)
+	var unmarshaledResult commandResult
+	err = json.Unmarshal(data, &unmarshaledResult)
 	if err != nil {
-		t.Fatalf("Failed to unmarshal PlanDetails: %v", err)
+		t.Fatalf("Failed to unmarshal commandResult: %v", err)
 	}
 
-	if result.Version != plan.Version {
-		t.Errorf("Version = %v, want %v", result.Version, plan.Version)
+	if unmarshaledResult.Version != result.Version {
+		t.Errorf("Version = %v, want %v", unmarshaledResult.Version, result.Version)
 	}
-	if result.Duration != plan.Duration {
-		t.Errorf("Duration = %v, want %v", result.Duration, plan.Duration)
+	if unmarshaledResult.Duration != result.Duration {
+		t.Errorf("Duration = %v, want %v", unmarshaledResult.Duration, result.Duration)
 	}
 }
 
@@ -585,15 +585,15 @@ func TestBenchmark_Integration(t *testing.T) {
 }
 
 // Benchmark tests for performance
-func BenchmarkPlanDetails_Marshal(b *testing.B) {
-	plan := PlanDetails{
+func BenchmarkCommandResult_Marshal(b *testing.B) {
+	result := commandResult{
 		Version:  "v1.0.0",
 		Duration: 10.5,
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := json.Marshal(plan)
+		_, err := json.Marshal(result)
 		if err != nil {
 			b.Fatalf("Failed to marshal: %v", err)
 		}
