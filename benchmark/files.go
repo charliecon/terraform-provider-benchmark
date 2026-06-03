@@ -8,7 +8,7 @@ import (
 )
 
 // writeDataToFile writes collected timing data to JSON file
-func (b *Benchmark) writeDataToFile(data []PlanDetails) error {
+func (b *Benchmark) writeDataToFile(data []commandResult) error {
 	var dataFilePath = filepath.Join(b.performanceDir, "data.json")
 	b.logMessage(LogLevelInfo, "Writing data to %s", dataFilePath)
 

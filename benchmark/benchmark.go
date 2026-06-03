@@ -7,7 +7,7 @@ import (
 
 // testCommitHashes tests different versions of the project by commit hash
 func (b *Benchmark) testReferences() error {
-	var data []PlanDetails
+	var data []commandResult
 
 	if err := b.initialiseTerraform(); err != nil {
 		return fmt.Errorf("terraform init failed: %v", err)
@@ -39,11 +39,11 @@ func (b *Benchmark) testReferences() error {
 		b.logMessage(LogLevelInfo, "Completed reference %s in %.2f seconds", ref, duration)
 
 		// Store results
-		plan := PlanDetails{
+		result := commandResult{
 			Version:  ref,
 			Duration: duration,
 		}
-		data = append(data, plan)
+		data = append(data, result)
 	}
 
 	return b.writeDataToFile(data)
