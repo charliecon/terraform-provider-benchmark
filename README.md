@@ -134,12 +134,12 @@ Control the verbosity of logging output:
 
 - `benchmark.LogLevelQuiet` - Minimal output
 - `benchmark.LogLevelInfo` - Standard informational messages (default)
-- `benchmark.LogLevelDebug` - Detailed debug information
+- `benchmark.LogLevelDebug` - Detailed debug information; also sets `TF_LOG=debug` on Terraform commands so logs under `output/logs/` include Terraform debug output
 
 ```go
 b := &benchmark.Benchmark{
     // ... other fields ...
-    LogLevel: benchmark.LogLevelDebug,  // Verbose logging
+    LogLevel: benchmark.LogLevelDebug,  // Verbose logging + TF_LOG=debug
 }
 ```
 

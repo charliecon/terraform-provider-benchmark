@@ -43,7 +43,7 @@ func (b *Benchmark) createOutputDirectories() error {
 		if err != nil {
 			return fmt.Errorf("failed to create log file %s: %w", b.generateLogFilePath(target.Ref), err)
 		}
-		file.Close()
+		_ = file.Close()
 	}
 
 	// Create destroy.log file
@@ -51,21 +51,21 @@ func (b *Benchmark) createOutputDirectories() error {
 	if err != nil {
 		return fmt.Errorf("failed to create destroy log file: %w", err)
 	}
-	file.Close()
+	_ = file.Close()
 
 	// Create data.json file
 	file, err = os.Create(b.performanceFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to create data file: %w", err)
 	}
-	file.Close()
+	_ = file.Close()
 
 	// Create init.log file
 	file, err = os.Create(b.initLogFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to create init log file: %w", err)
 	}
-	file.Close()
+	_ = file.Close()
 
 	b.logMessage(LogLevelInfo, "🏗️ Output directories and files created")
 	return nil

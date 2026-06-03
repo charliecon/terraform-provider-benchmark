@@ -15,7 +15,7 @@ func (b *Benchmark) initialiseTerraform() error {
 	if err != nil {
 		return fmt.Errorf("failed to open output file: %v", err)
 	}
-	defer outputFile.Close()
+	defer func() { _ = outputFile.Close() }()
 
 	cmd := b.setupTerraformCommand(command, outputFile, false, nil)
 
@@ -35,7 +35,7 @@ func (b *Benchmark) runTerraformCommand(target BenchmarkTarget) error {
 	if err != nil {
 		return fmt.Errorf("failed to open output file: %v", err)
 	}
-	defer outputFile.Close()
+	defer func() { _ = outputFile.Close() }()
 
 	// Split the command into executable and arguments
 	commandParts := strings.Fields(string(b.TfCommand))
@@ -85,7 +85,7 @@ func (b *Benchmark) destroy(extraEnv map[string]string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open output file: %v", err)
 	}
-	defer outputFile.Close()
+	defer func() { _ = outputFile.Close() }()
 
 	cmd := b.setupTerraformCommand(command, outputFile, true, extraEnv)
 

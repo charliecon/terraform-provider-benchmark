@@ -88,7 +88,7 @@ func TestBenchmark_validate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	terraformrcPath := filepath.Join(tempDir, ".terraformrc")
 	err = os.WriteFile(terraformrcPath, []byte("test content"), 0644)
@@ -269,7 +269,7 @@ func TestBenchmark_writeDataToFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	b := &Benchmark{
 		performanceDir: tempDir,
@@ -324,10 +324,10 @@ func TestBenchmark_createOutputDirectories(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	b := &Benchmark{
-		OutputDir:  "test-output",
+		OutputDir: "test-output",
 		Targets: []BenchmarkTarget{
 			Target("v1.0.0"),
 			Target("main"),
@@ -341,7 +341,7 @@ func TestBenchmark_createOutputDirectories(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	err = os.Chdir(tempDir)
 	if err != nil {
@@ -388,7 +388,7 @@ func TestBenchmark_setupTerraformCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	terraformrcPath := filepath.Join(tempDir, ".terraformrc")
 	err = os.WriteFile(terraformrcPath, []byte("test content"), 0644)
@@ -406,8 +406,8 @@ func TestBenchmark_setupTerraformCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp output file: %v", err)
 	}
-	defer os.Remove(outputFile.Name())
-	defer outputFile.Close()
+	defer func() { _ = os.Remove(outputFile.Name()) }()
+	defer func() { _ = outputFile.Close() }()
 
 	cmd := b.setupTerraformCommand([]string{"terraform", "plan"}, outputFile, true, nil)
 
@@ -447,6 +447,27 @@ func TestBenchmark_setupTerraformCommand(t *testing.T) {
 	}
 	if !foundFoo {
 		t.Error("FOO environment variable not set from target env")
+	}
+
+	// TF_LOG is not set at info log level
+	cmd = b.setupTerraformCommand([]string{"terraform", "plan"}, outputFile, true, nil)
+	for _, env := range cmd.Env {
+		if strings.HasPrefix(env, "TF_LOG=") {
+			t.Error("TF_LOG should not be set when LogLevel is below debug")
+		}
+	}
+
+	// TF_LOG=debug when benchmark LogLevel is debug
+	b.LogLevel = LogLevelDebug
+	cmd = b.setupTerraformCommand([]string{"terraform", "apply"}, outputFile, true, nil)
+	foundTFLog := false
+	for _, env := range cmd.Env {
+		if env == "TF_LOG=debug" {
+			foundTFLog = true
+		}
+	}
+	if !foundTFLog {
+		t.Error("TF_LOG=debug not set when LogLevel is debug")
 	}
 }
 
@@ -570,7 +591,7 @@ func createTestBenchmark() *Benchmark {
 	}
 
 	return &Benchmark{
-		TfCommand:               Plan,
+		TfCommand: Plan,
 		Targets: []BenchmarkTarget{
 			Target("v1.0.0"),
 			Target("main"),

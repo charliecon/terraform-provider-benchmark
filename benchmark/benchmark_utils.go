@@ -110,13 +110,31 @@ func (b *Benchmark) commandEnv(extraEnv map[string]string, useDevOverride bool) 
 	return append(env, "TF_CLI_CONFIG_FILE="+b.TerraformRcFilePath)
 }
 
+// terraformEnv merges per-target environment with benchmark-level Terraform settings.
+func (b *Benchmark) terraformEnv(extraEnv map[string]string) map[string]string {
+	if b.LogLevel < LogLevelDebug {
+		return extraEnv
+	}
+
+	merged := make(map[string]string, len(extraEnv)+1)
+	for key, value := range extraEnv {
+		merged[key] = value
+	}
+	merged["TF_LOG"] = "debug"
+	return merged
+}
+
 // setupTerraformCommand creates and configures a terraform command with proper environment
 func (b *Benchmark) setupTerraformCommand(command []string, outputFile *os.File, useDevOverride bool, extraEnv map[string]string) *exec.Cmd {
+	if b.LogLevel >= LogLevelDebug {
+		b.logMessage(LogLevelDebug, "Setting TF_LOG=debug for Terraform command")
+	}
+
 	cmd := exec.Command(command[0], command[1:]...)
 	cmd.Stdout = outputFile
 	cmd.Stderr = outputFile
 	cmd.Dir = b.TfConfigDir
-	cmd.Env = b.commandEnv(extraEnv, useDevOverride)
+	cmd.Env = b.commandEnv(b.terraformEnv(extraEnv), useDevOverride)
 	return cmd
 }
 
