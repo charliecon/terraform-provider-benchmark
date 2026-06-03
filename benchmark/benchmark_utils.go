@@ -46,8 +46,13 @@ func (b *Benchmark) validate() error {
 	if b.TfCommand == "" {
 		return errors.New("terraform command is required")
 	}
-	if len(b.References) == 0 {
-		return errors.New("at least one reference is required")
+	if len(b.Targets) == 0 {
+		return errors.New("at least one target is required")
+	}
+	for i, target := range b.Targets {
+		if target.Ref == "" {
+			return fmt.Errorf("target %d: ref is required", i)
+		}
 	}
 	if b.ProjectPath == "" {
 		return errors.New("project path is required")
@@ -86,28 +91,50 @@ func (b *Benchmark) generateLogFilePath(reference string) string {
 	return filepath.Join(b.logsDir, fmt.Sprintf("%s.log", filename))
 }
 
-// setupTerraformCommand creates and configures a terraform command with proper environment
-func (b *Benchmark) setupTerraformCommand(command []string, outputFile *os.File, useDevOverride bool) *exec.Cmd {
-	cmd := exec.Command(command[0], command[1:]...)
-	cmd.Stdout = outputFile
-	cmd.Stderr = outputFile
-	cmd.Dir = b.TfConfigDir
-
+// commandEnv builds the process environment, optionally including per-target variables
+// and TF_CLI_CONFIG_FILE for dev-overridden Terraform runs.
+func (b *Benchmark) commandEnv(extraEnv map[string]string, useDevOverride bool) []string {
+	env := os.Environ()
+	for key, value := range extraEnv {
+		env = append(env, key+"="+value)
+	}
 	if !useDevOverride {
-		return cmd
+		return env
 	}
 
-	// checking if file exists
 	if _, err := os.Stat(b.TerraformRcFilePath); os.IsNotExist(err) {
 		b.logMessage(LogLevelDebug, "terraformrc file does not exist where we expect it to")
 	}
 
-	// Set TF_CLI_CONFIG_FILE to b.TerraformRcFilePath
 	b.logMessage(LogLevelDebug, "Setting TF_CLI_CONFIG_FILE to "+b.TerraformRcFilePath)
-	env := os.Environ()
-	env = append(env, "TF_CLI_CONFIG_FILE="+b.TerraformRcFilePath)
-	cmd.Env = env
+	return append(env, "TF_CLI_CONFIG_FILE="+b.TerraformRcFilePath)
+}
 
+// terraformEnv merges per-target environment with benchmark-level Terraform settings.
+func (b *Benchmark) terraformEnv(extraEnv map[string]string) map[string]string {
+	if b.LogLevel < LogLevelDebug {
+		return extraEnv
+	}
+
+	merged := make(map[string]string, len(extraEnv)+1)
+	for key, value := range extraEnv {
+		merged[key] = value
+	}
+	merged["TF_LOG"] = "debug"
+	return merged
+}
+
+// setupTerraformCommand creates and configures a terraform command with proper environment
+func (b *Benchmark) setupTerraformCommand(command []string, outputFile *os.File, useDevOverride bool, extraEnv map[string]string) *exec.Cmd {
+	if b.LogLevel >= LogLevelDebug {
+		b.logMessage(LogLevelDebug, "Setting TF_LOG=debug for Terraform command")
+	}
+
+	cmd := exec.Command(command[0], command[1:]...)
+	cmd.Stdout = outputFile
+	cmd.Stderr = outputFile
+	cmd.Dir = b.TfConfigDir
+	cmd.Env = b.commandEnv(b.terraformEnv(extraEnv), useDevOverride)
 	return cmd
 }
 

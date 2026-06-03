@@ -78,16 +78,16 @@ func main() {
     // Define the benchmark configuration
     b := &benchmark.Benchmark{
         TfCommand:  benchmark.Plan, // or benchmark.Apply, benchmark.Init
-        References: []string{
-            "main",    // branch name
-            "v1.66.0", // tag
-            "abc1234", // commit hash
+        Targets: []benchmark.BenchmarkTarget{
+            benchmark.Target("main"),    // branch name
+            benchmark.Target("v1.66.0"), // tag
+            benchmark.Target("abc1234"), // commit hash
         },
         ProjectPath:             "/absolute/path/to/your/terraform-provider-genesyscloud",
         SkipDestroyConfirmation: false, // Default: requires confirmation before destructive operations
         LogLevel:                benchmark.LogLevelInfo, // Set logging verbosity
         TfConfigDir:             "./path/to/terraform_config", // Directory containing your Terraform configuration
-        TerraformRcFilePath:     "./path/to/.terraformrc", // Path to your .terraformrc file
+        TerraformRcFilePath:     "../path/to/.terraformrc", // Path to your .terraformrc file. This should either be an absolute path or relative to the terraform config.
     }
     
     // Run the benchmark
@@ -134,14 +134,35 @@ Control the verbosity of logging output:
 
 - `benchmark.LogLevelQuiet` - Minimal output
 - `benchmark.LogLevelInfo` - Standard informational messages (default)
-- `benchmark.LogLevelDebug` - Detailed debug information
+- `benchmark.LogLevelDebug` - Detailed debug information; also sets `TF_LOG=debug` on Terraform commands so logs under `output/logs/` include Terraform debug output
 
 ```go
 b := &benchmark.Benchmark{
     // ... other fields ...
-    LogLevel: benchmark.LogLevelDebug,  // Verbose logging
+    LogLevel: benchmark.LogLevelDebug,  // Verbose logging + TF_LOG=debug
 }
 ```
+
+#### Targets and per-target environment
+
+Each entry in `Targets` is a `BenchmarkTarget`: a git ref to check out, plus optional environment variables for that run. Use `benchmark.Target("ref")` when you do not need extra variables.
+
+```go
+b := &benchmark.Benchmark{
+    // ... other fields ...
+    Targets: []benchmark.BenchmarkTarget{
+        benchmark.Target("main"),
+        {
+            Ref: "v1.66.0",
+            Env: map[string]string{
+                "GENESYSCLOUD_REGION": "us-east-1",
+            },
+        },
+    },
+}
+```
+
+Per-target `Env` is passed to `make sideload` and to Terraform plan/apply/destroy for that target. `TF_CLI_CONFIG_FILE` is still set automatically for Terraform commands.
 
 #### OutputDir
 Specify a custom directory for benchmark output files. If not provided, defaults to `output`.

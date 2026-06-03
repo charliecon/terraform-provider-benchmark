@@ -17,11 +17,11 @@ func TestBenchmark_configureDefaults(t *testing.T) {
 		{
 			name: "all defaults",
 			benchmark: &Benchmark{
-				References:  []string{"test"},
+				Targets:     []BenchmarkTarget{Target("test")},
 				ProjectPath: "/test/path",
 			},
 			expected: &Benchmark{
-				References:  []string{"test"},
+				Targets:     []BenchmarkTarget{Target("test")},
 				ProjectPath: "/test/path",
 				OutputDir:   "output",
 			},
@@ -29,12 +29,12 @@ func TestBenchmark_configureDefaults(t *testing.T) {
 		{
 			name: "custom output directory",
 			benchmark: &Benchmark{
-				References:  []string{"test"},
+				Targets:     []BenchmarkTarget{Target("test")},
 				ProjectPath: "/test/path",
 				OutputDir:   "custom-output",
 			},
 			expected: &Benchmark{
-				References:  []string{"test"},
+				Targets:     []BenchmarkTarget{Target("test")},
 				ProjectPath: "/test/path",
 				OutputDir:   "custom-output",
 			},
@@ -88,7 +88,7 @@ func TestBenchmark_validate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	terraformrcPath := filepath.Join(tempDir, ".terraformrc")
 	err = os.WriteFile(terraformrcPath, []byte("test content"), 0644)
@@ -112,7 +112,7 @@ func TestBenchmark_validate(t *testing.T) {
 			name: "valid configuration",
 			benchmark: &Benchmark{
 				TfCommand:           Plan,
-				References:          []string{"test"},
+				Targets:             []BenchmarkTarget{Target("test")},
 				ProjectPath:         "/test/path",
 				TerraformRcFilePath: terraformrcPath,
 				TfConfigDir:         tfConfigDir,
@@ -122,7 +122,7 @@ func TestBenchmark_validate(t *testing.T) {
 		{
 			name: "missing terraform command",
 			benchmark: &Benchmark{
-				References:          []string{"test"},
+				Targets:             []BenchmarkTarget{Target("test")},
 				ProjectPath:         "/test/path",
 				TerraformRcFilePath: terraformrcPath,
 				TfConfigDir:         tfConfigDir,
@@ -131,7 +131,7 @@ func TestBenchmark_validate(t *testing.T) {
 			errMsg:  "terraform command is required",
 		},
 		{
-			name: "missing references",
+			name: "missing targets",
 			benchmark: &Benchmark{
 				TfCommand:           Plan,
 				ProjectPath:         "/test/path",
@@ -139,13 +139,13 @@ func TestBenchmark_validate(t *testing.T) {
 				TfConfigDir:         tfConfigDir,
 			},
 			wantErr: true,
-			errMsg:  "at least one reference is required",
+			errMsg:  "at least one target is required",
 		},
 		{
 			name: "missing project path",
 			benchmark: &Benchmark{
 				TfCommand:           Plan,
-				References:          []string{"test"},
+				Targets:             []BenchmarkTarget{Target("test")},
 				TerraformRcFilePath: terraformrcPath,
 				TfConfigDir:         tfConfigDir,
 			},
@@ -156,7 +156,7 @@ func TestBenchmark_validate(t *testing.T) {
 			name: "missing terraformrc file path",
 			benchmark: &Benchmark{
 				TfCommand:   Plan,
-				References:  []string{"test"},
+				Targets:     []BenchmarkTarget{Target("test")},
 				ProjectPath: "/test/path",
 				TfConfigDir: tfConfigDir,
 			},
@@ -167,7 +167,7 @@ func TestBenchmark_validate(t *testing.T) {
 			name: "missing terraform config directory",
 			benchmark: &Benchmark{
 				TfCommand:           Plan,
-				References:          []string{"test"},
+				Targets:             []BenchmarkTarget{Target("test")},
 				ProjectPath:         "/test/path",
 				TerraformRcFilePath: terraformrcPath,
 			},
@@ -178,7 +178,7 @@ func TestBenchmark_validate(t *testing.T) {
 			name: "terraformrc file does not exist",
 			benchmark: &Benchmark{
 				TfCommand:           Plan,
-				References:          []string{"test"},
+				Targets:             []BenchmarkTarget{Target("test")},
 				ProjectPath:         "/test/path",
 				TerraformRcFilePath: "/nonexistent/terraformrc",
 				TfConfigDir:         tfConfigDir,
@@ -190,13 +190,25 @@ func TestBenchmark_validate(t *testing.T) {
 			name: "terraform config directory does not exist",
 			benchmark: &Benchmark{
 				TfCommand:           Plan,
-				References:          []string{"test"},
+				Targets:             []BenchmarkTarget{Target("test")},
 				ProjectPath:         "/test/path",
 				TerraformRcFilePath: terraformrcPath,
 				TfConfigDir:         "/nonexistent/config",
 			},
 			wantErr: true,
 			errMsg:  "terraform config directory does not exist at",
+		},
+		{
+			name: "empty target ref",
+			benchmark: &Benchmark{
+				TfCommand:           Plan,
+				Targets:             []BenchmarkTarget{{Ref: ""}},
+				ProjectPath:         "/test/path",
+				TerraformRcFilePath: terraformrcPath,
+				TfConfigDir:         tfConfigDir,
+			},
+			wantErr: true,
+			errMsg:  "ref is required",
 		},
 	}
 
@@ -257,7 +269,7 @@ func TestBenchmark_writeDataToFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	b := &Benchmark{
 		performanceDir: tempDir,
@@ -312,11 +324,15 @@ func TestBenchmark_createOutputDirectories(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	b := &Benchmark{
-		OutputDir:  "test-output",
-		References: []string{"v1.0.0", "main", "feature.branch"},
+		OutputDir: "test-output",
+		Targets: []BenchmarkTarget{
+			Target("v1.0.0"),
+			Target("main"),
+			Target("feature.branch"),
+		},
 	}
 	b.configureOutputPaths()
 
@@ -325,7 +341,7 @@ func TestBenchmark_createOutputDirectories(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	err = os.Chdir(tempDir)
 	if err != nil {
@@ -372,7 +388,7 @@ func TestBenchmark_setupTerraformCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	terraformrcPath := filepath.Join(tempDir, ".terraformrc")
 	err = os.WriteFile(terraformrcPath, []byte("test content"), 0644)
@@ -390,10 +406,10 @@ func TestBenchmark_setupTerraformCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp output file: %v", err)
 	}
-	defer os.Remove(outputFile.Name())
-	defer outputFile.Close()
+	defer func() { _ = os.Remove(outputFile.Name()) }()
+	defer func() { _ = outputFile.Close() }()
 
-	cmd := b.setupTerraformCommand([]string{"terraform", "plan"}, outputFile, true)
+	cmd := b.setupTerraformCommand([]string{"terraform", "plan"}, outputFile, true, nil)
 
 	if cmd.Dir != tempDir {
 		t.Errorf("Command directory = %v, want %v", cmd.Dir, tempDir)
@@ -412,13 +428,46 @@ func TestBenchmark_setupTerraformCommand(t *testing.T) {
 	}
 
 	// Test without dev override
-	cmd = b.setupTerraformCommand([]string{"terraform", "plan"}, outputFile, false)
+	cmd = b.setupTerraformCommand([]string{"terraform", "plan"}, outputFile, false, nil)
 
 	// Should not have TF_CLI_CONFIG_FILE set
 	for _, env := range cmd.Env {
 		if strings.HasPrefix(env, "TF_CLI_CONFIG_FILE=") {
 			t.Error("TF_CLI_CONFIG_FILE should not be set when useDevOverride is false")
 		}
+	}
+
+	// Test with per-target environment variables
+	cmd = b.setupTerraformCommand([]string{"terraform", "plan"}, outputFile, true, map[string]string{"FOO": "bar"})
+	foundFoo := false
+	for _, env := range cmd.Env {
+		if env == "FOO=bar" {
+			foundFoo = true
+		}
+	}
+	if !foundFoo {
+		t.Error("FOO environment variable not set from target env")
+	}
+
+	// TF_LOG is not set at info log level
+	cmd = b.setupTerraformCommand([]string{"terraform", "plan"}, outputFile, true, nil)
+	for _, env := range cmd.Env {
+		if strings.HasPrefix(env, "TF_LOG=") {
+			t.Error("TF_LOG should not be set when LogLevel is below debug")
+		}
+	}
+
+	// TF_LOG=debug when benchmark LogLevel is debug
+	b.LogLevel = LogLevelDebug
+	cmd = b.setupTerraformCommand([]string{"terraform", "apply"}, outputFile, true, nil)
+	foundTFLog := false
+	for _, env := range cmd.Env {
+		if env == "TF_LOG=debug" {
+			foundTFLog = true
+		}
+	}
+	if !foundTFLog {
+		t.Error("TF_LOG=debug not set when LogLevel is debug")
 	}
 }
 
@@ -542,8 +591,11 @@ func createTestBenchmark() *Benchmark {
 	}
 
 	return &Benchmark{
-		TfCommand:               Plan,
-		References:              []string{"v1.0.0", "main"},
+		TfCommand: Plan,
+		Targets: []BenchmarkTarget{
+			Target("v1.0.0"),
+			Target("main"),
+		},
 		ProjectPath:             "/test/project/path",
 		SkipDestroyConfirmation: false,
 		LogLevel:                LogLevelInfo,
