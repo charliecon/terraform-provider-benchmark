@@ -17,7 +17,7 @@ func (b *Benchmark) initialiseTerraform() error {
 	}
 	defer outputFile.Close()
 
-	cmd := b.setupTerraformCommand(command, outputFile, false)
+	cmd := b.setupTerraformCommand(command, outputFile, false, nil)
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("terraform init failed: %v", err)
@@ -27,8 +27,8 @@ func (b *Benchmark) initialiseTerraform() error {
 }
 
 // runTerraformCommand executes terraform command and captures output
-func (b *Benchmark) runTerraformCommand(reference string) error {
-	outputFileName := b.generateLogFilePath(reference)
+func (b *Benchmark) runTerraformCommand(target BenchmarkTarget) error {
+	outputFileName := b.generateLogFilePath(target.Ref)
 
 	b.logMessage(LogLevelDebug, "Opening output file %s", outputFileName)
 	outputFile, err := os.OpenFile(outputFileName, os.O_WRONLY|os.O_TRUNC, 0644)
@@ -43,9 +43,9 @@ func (b *Benchmark) runTerraformCommand(reference string) error {
 		return fmt.Errorf("invalid command: %s", string(b.TfCommand))
 	}
 
-	cmd := b.setupTerraformCommand(commandParts, outputFile, true)
+	cmd := b.setupTerraformCommand(commandParts, outputFile, true, target.Env)
 
-	b.logMessage(LogLevelInfo, "⌛️ Running %s for version %s in directory %s", string(b.TfCommand), reference, b.TfConfigDir)
+	b.logMessage(LogLevelInfo, "⌛️ Running %s for version %s in directory %s", string(b.TfCommand), target.Ref, b.TfConfigDir)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("terraform command failed: %w", err)
 	}
@@ -55,10 +55,10 @@ func (b *Benchmark) runTerraformCommand(reference string) error {
 }
 
 // makeSideload checks out the specified ref and runs make sideload
-func (b *Benchmark) makeSideload(ref string) (err error) {
-	b.logMessage(LogLevelInfo, "Checking out reference %s in %s", ref, b.ProjectPath)
+func (b *Benchmark) makeSideload(target BenchmarkTarget) (err error) {
+	b.logMessage(LogLevelInfo, "Checking out %s in %s", target.Ref, b.ProjectPath)
 	// Checkout specific hash
-	cmd := exec.Command("git", "checkout", ref)
+	cmd := exec.Command("git", "checkout", target.Ref)
 	cmd.Dir = b.ProjectPath
 	if err = cmd.Run(); err != nil {
 		return fmt.Errorf("git checkout failed: %w", err)
@@ -68,6 +68,7 @@ func (b *Benchmark) makeSideload(ref string) (err error) {
 	// Run make sideload
 	cmd = exec.Command("make", "sideload")
 	cmd.Dir = b.ProjectPath
+	cmd.Env = b.commandEnv(target.Env, false)
 	if err = cmd.Run(); err != nil {
 		return fmt.Errorf("make sideload failed: %w", err)
 	}
@@ -76,7 +77,7 @@ func (b *Benchmark) makeSideload(ref string) (err error) {
 }
 
 // destroy runs terraform destroy with optional confirmation
-func (b *Benchmark) destroy() error {
+func (b *Benchmark) destroy(extraEnv map[string]string) error {
 	command := []string{"terraform", "destroy", "--auto-approve"}
 	b.logMessage(LogLevelInfo, "🔥 Running %v in directory %s", command, b.TfConfigDir)
 
@@ -86,7 +87,7 @@ func (b *Benchmark) destroy() error {
 	}
 	defer outputFile.Close()
 
-	cmd := b.setupTerraformCommand(command, outputFile, true)
+	cmd := b.setupTerraformCommand(command, outputFile, true, extraEnv)
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("destroy failed: %v", err)

@@ -6,41 +6,41 @@ import (
 )
 
 // testCommitHashes tests different versions of the project by commit hash
-func (b *Benchmark) testReferences() error {
+func (b *Benchmark) testTargets() error {
 	var data []PlanDetails
 
 	if err := b.initialiseTerraform(); err != nil {
 		return fmt.Errorf("terraform init failed: %v", err)
 	}
 
-	// Iterate through versions, testing each one
-	for i, ref := range b.References {
-		b.logMessage(LogLevelInfo, "Starting benchmark for reference %s (%d/%d)", ref, i+1, len(b.References))
+	// Iterate through targets, testing each one
+	for i, target := range b.Targets {
+		b.logMessage(LogLevelInfo, "Starting benchmark for %s (%d/%d)", target.Ref, i+1, len(b.Targets))
 
-		if err := b.makeSideload(ref); err != nil {
+		if err := b.makeSideload(target); err != nil {
 			return err
 		}
 
 		if b.TfCommand != Plan {
-			if err := b.destroy(); err != nil {
+			if err := b.destroy(target.Env); err != nil {
 				return fmt.Errorf("destroy failed: %v", err)
 			}
 		}
 
 		// Time the execution of terraform command
-		b.logMessage(LogLevelInfo, "Running Terraform command for reference %s", ref)
+		b.logMessage(LogLevelInfo, "Running Terraform command for %s", target.Ref)
 		start := time.Now()
-		if err := b.runTerraformCommand(ref); err != nil {
+		if err := b.runTerraformCommand(target); err != nil {
 			return err
 		}
 		end := time.Now()
 
 		duration := end.Sub(start).Seconds()
-		b.logMessage(LogLevelInfo, "Completed reference %s in %.2f seconds", ref, duration)
+		b.logMessage(LogLevelInfo, "Completed %s in %.2f seconds", target.Ref, duration)
 
 		// Store results
 		plan := PlanDetails{
-			Version:  ref,
+			Version:  target.Ref,
 			Duration: duration,
 		}
 		data = append(data, plan)
@@ -50,7 +50,7 @@ func (b *Benchmark) testReferences() error {
 }
 
 func (b *Benchmark) Run() (err error) {
-	b.logMessage(LogLevelInfo, "Starting benchmark with %d references", len(b.References))
+	b.logMessage(LogLevelInfo, "Starting benchmark with %d targets", len(b.Targets))
 
 	if err = b.setupConfiguration(); err != nil {
 		return fmt.Errorf("pre-config failed: %w", err)
@@ -66,7 +66,7 @@ func (b *Benchmark) Run() (err error) {
 		}
 	}
 
-	if err = b.testReferences(); err != nil {
+	if err = b.testTargets(); err != nil {
 		return fmt.Errorf("failed to test commit hashes: %w", err)
 	}
 

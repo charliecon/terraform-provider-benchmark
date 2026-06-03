@@ -22,12 +22,29 @@ func (l LogLevel) String() string {
 	return []string{"Quiet", "Info", "Debug"}[l]
 }
 
+// BenchmarkTarget is a git ref (branch, tag, or commit) to benchmark, with optional
+// environment variables applied while that target is active.
+type BenchmarkTarget struct {
+	// Ref is the git branch, tag, or commit to check out and sideload.
+	Ref string
+
+	// Env sets extra environment variables for subprocesses run while benchmarking
+	// this target (make sideload and Terraform plan/apply/destroy). TF_CLI_CONFIG_FILE
+	// is still set automatically for Terraform commands.
+	Env map[string]string
+}
+
+// Target returns a BenchmarkTarget for ref with no extra environment variables.
+func Target(ref string) BenchmarkTarget {
+	return BenchmarkTarget{Ref: ref}
+}
+
 type Benchmark struct {
 	// TfCommand Terraform command to run
 	TfCommand command
 
-	// References can be commit hashes, tags, or branches
-	References []string
+	// Targets lists git refs to benchmark, each with optional per-target environment.
+	Targets []BenchmarkTarget
 
 	// ProjectPath is the absolute path to the locally cloned project
 	ProjectPath string

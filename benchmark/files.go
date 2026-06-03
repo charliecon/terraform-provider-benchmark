@@ -37,11 +37,11 @@ func (b *Benchmark) createOutputDirectories() error {
 	b.logMessage(LogLevelInfo, "Creating output files")
 
 	// Create placeholder files for all expected log files
-	for _, ref := range b.References {
+	for _, target := range b.Targets {
 		// Create or truncate the file
-		file, err := os.Create(b.generateLogFilePath(ref))
+		file, err := os.Create(b.generateLogFilePath(target.Ref))
 		if err != nil {
-			return fmt.Errorf("failed to create log file %s: %w", b.generateLogFilePath(ref), err)
+			return fmt.Errorf("failed to create log file %s: %w", b.generateLogFilePath(target.Ref), err)
 		}
 		file.Close()
 	}
