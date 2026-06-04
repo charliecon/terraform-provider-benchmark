@@ -147,13 +147,16 @@ b := &benchmark.Benchmark{
 
 Each entry in `Targets` is a `BenchmarkTarget`: a git ref to check out, plus optional environment variables for that run. Use `benchmark.Target("ref")` when you do not need extra variables.
 
+Set `Id` when you run the same `Ref` more than once (for example with different `Env` values). It appears in `data.json` and is used for log file names (e.g. `main_with_env_var.log`).
+
 ```go
 b := &benchmark.Benchmark{
     // ... other fields ...
     Targets: []benchmark.BenchmarkTarget{
         benchmark.Target("main"),
         {
-            Ref: "v1.66.0",
+            Id:  "main_with_env_var",
+            Ref: "main",
             Env: map[string]string{
                 "GENESYSCLOUD_REGION": "us-east-1",
             },
@@ -216,6 +219,7 @@ The `data.json` file contains timing results in the following format:
 ```json
 [
     {
+        "id": "main_with_env_var",
         "version": "main",
         "duration": 12.345
     },

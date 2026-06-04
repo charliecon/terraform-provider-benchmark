@@ -40,6 +40,7 @@ func (b *Benchmark) testTargets() error {
 
 		// Store results
 		result := commandResult{
+			Id:       target.Id,
 			Version:  target.Ref,
 			Duration: duration,
 		}

@@ -28,7 +28,7 @@ func (b *Benchmark) initialiseTerraform() error {
 
 // runTerraformCommand executes terraform command and captures output
 func (b *Benchmark) runTerraformCommand(target BenchmarkTarget) error {
-	outputFileName := b.generateLogFilePath(target.Ref)
+	outputFileName := b.generateLogFilePath(target.outputKey())
 
 	b.logMessage(LogLevelDebug, "Opening output file %s", outputFileName)
 	outputFile, err := os.OpenFile(outputFileName, os.O_WRONLY|os.O_TRUNC, 0644)

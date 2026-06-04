@@ -25,6 +25,9 @@ func (l LogLevel) String() string {
 // BenchmarkTarget is a git ref (branch, tag, or commit) to benchmark, with optional
 // environment variables applied while that target is active.
 type BenchmarkTarget struct {
+	// Id can be used to identify the execution in the output e.g. "main_with_env_var" / "main_without_env_var"
+	Id string
+
 	// Ref is the git branch, tag, or commit to check out and sideload.
 	Ref string
 
@@ -37,6 +40,14 @@ type BenchmarkTarget struct {
 // Target returns a BenchmarkTarget for ref with no extra environment variables.
 func Target(ref string) BenchmarkTarget {
 	return BenchmarkTarget{Ref: ref}
+}
+
+// outputKey returns Id when set, otherwise Ref. Used for log file names and output identity.
+func (t BenchmarkTarget) outputKey() string {
+	if t.Id != "" {
+		return t.Id
+	}
+	return t.Ref
 }
 
 type Benchmark struct {
@@ -76,6 +87,7 @@ type Benchmark struct {
 
 // commandResult stores details about each Terraform command execution
 type commandResult struct {
+	Id       string  `json:"id,omitempty"`
 	Version  string  `json:"version"`
 	Duration float64 `json:"duration"`
 }
