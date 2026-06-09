@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -53,6 +54,9 @@ func (b *Benchmark) validate() error {
 		if target.Ref == "" {
 			return fmt.Errorf("target %d: ref is required", i)
 		}
+		if target.Parallelism < 0 {
+			return fmt.Errorf("target %d: parallelism must be zero or positive", i)
+		}
 	}
 	if b.ProjectPath == "" {
 		return errors.New("project path is required")
@@ -83,6 +87,21 @@ func (b *Benchmark) setupConfiguration() error {
 	b.configureDefaults()
 	b.configureOutputPaths()
 	return nil
+}
+
+func appendParallelism(args []string, parallelism int) []string {
+	if parallelism > 0 {
+		return append(args, "-parallelism", strconv.Itoa(parallelism))
+	}
+	return args
+}
+
+func terraformCommandParts(tfCommand command, parallelism int) ([]string, error) {
+	parts := strings.Fields(string(tfCommand))
+	if len(parts) == 0 {
+		return nil, fmt.Errorf("invalid command: %s", string(tfCommand))
+	}
+	return appendParallelism(parts, parallelism), nil
 }
 
 // generateLogFilePath generates the path to the log file for a given reference

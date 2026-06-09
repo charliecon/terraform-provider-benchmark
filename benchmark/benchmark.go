@@ -22,7 +22,7 @@ func (b *Benchmark) testTargets() error {
 		}
 
 		if b.TfCommand != Plan {
-			if err := b.destroy(target.Env); err != nil {
+			if err := b.destroy(target); err != nil {
 				return fmt.Errorf("destroy failed: %v", err)
 			}
 		}
@@ -40,6 +40,7 @@ func (b *Benchmark) testTargets() error {
 
 		// Store results
 		result := commandResult{
+			Id:       target.Id,
 			Version:  target.Ref,
 			Duration: duration,
 		}

@@ -210,6 +210,18 @@ func TestBenchmark_validate(t *testing.T) {
 			wantErr: true,
 			errMsg:  "ref is required",
 		},
+		{
+			name: "negative parallelism",
+			benchmark: &Benchmark{
+				TfCommand:           Plan,
+				Targets:             []BenchmarkTarget{{Ref: "main", Parallelism: -1}},
+				ProjectPath:         "/test/path",
+				TerraformRcFilePath: terraformrcPath,
+				TfConfigDir:         tfConfigDir,
+			},
+			wantErr: true,
+			errMsg:  "parallelism must be zero or positive",
+		},
 	}
 
 	for _, tt := range tests {
@@ -276,7 +288,7 @@ func TestBenchmark_writeDataToFile(t *testing.T) {
 	}
 
 	testData := []commandResult{
-		{Version: "v1.0.0", Duration: 10.5},
+		{Id: "main_with_env_var", Version: "main", Duration: 10.5},
 		{Version: "v1.1.0", Duration: 9.8},
 		{Version: "main", Duration: 11.2},
 	}
@@ -309,11 +321,83 @@ func TestBenchmark_writeDataToFile(t *testing.T) {
 	}
 
 	for i, expected := range testData {
+		if result[i].Id != expected.Id {
+			t.Errorf("Record %d: Id = %v, want %v", i, result[i].Id, expected.Id)
+		}
 		if result[i].Version != expected.Version {
 			t.Errorf("Record %d: Version = %v, want %v", i, result[i].Version, expected.Version)
 		}
 		if result[i].Duration != expected.Duration {
 			t.Errorf("Record %d: Duration = %v, want %v", i, result[i].Duration, expected.Duration)
+		}
+	}
+
+	if !strings.Contains(string(content), `"id": "main_with_env_var"`) {
+		t.Errorf("data.json should contain id field, got: %s", content)
+	}
+}
+
+func TestTerraformCommandParts(t *testing.T) {
+	tests := []struct {
+		name        string
+		tfCommand   command
+		parallelism int
+		want        []string
+		wantErr     bool
+	}{
+		{
+			name:        "plan without parallelism",
+			tfCommand:   Plan,
+			parallelism: 0,
+			want:        []string{"terraform", "plan"},
+		},
+		{
+			name:        "apply with parallelism",
+			tfCommand:   Apply,
+			parallelism: 10,
+			want:        []string{"terraform", "apply", "--auto-approve", "-parallelism", "10"},
+		},
+		{
+			name:      "invalid command",
+			tfCommand: command(""),
+			wantErr:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := terraformCommandParts(tt.tfCommand, tt.parallelism)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("terraformCommandParts() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+
+			if len(got) != len(tt.want) {
+				t.Fatalf("terraformCommandParts() = %v, want %v", got, tt.want)
+			}
+			for i := range tt.want {
+				if got[i] != tt.want[i] {
+					t.Errorf("terraformCommandParts()[%d] = %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestBenchmarkTarget_outputKey(t *testing.T) {
+	tests := []struct {
+		target   BenchmarkTarget
+		expected string
+	}{
+		{target: BenchmarkTarget{Ref: "main"}, expected: "main"},
+		{target: BenchmarkTarget{Id: "main_with_env_var", Ref: "main"}, expected: "main_with_env_var"},
+	}
+
+	for _, tt := range tests {
+		if got := tt.target.outputKey(); got != tt.expected {
+			t.Errorf("outputKey() = %q, want %q", got, tt.expected)
 		}
 	}
 }
@@ -510,7 +594,8 @@ func TestBenchmark_logMessage(t *testing.T) {
 
 func TestCommandResult_JSON(t *testing.T) {
 	result := commandResult{
-		Version:  "v1.0.0",
+		Id:       "main_with_env_var",
+		Version:  "main",
 		Duration: 10.5,
 	}
 
@@ -519,12 +604,19 @@ func TestCommandResult_JSON(t *testing.T) {
 		t.Fatalf("Failed to marshal commandResult: %v", err)
 	}
 
+	if !strings.Contains(string(data), `"id":"main_with_env_var"`) && !strings.Contains(string(data), `"id": "main_with_env_var"`) {
+		t.Errorf("marshaled JSON should contain id, got: %s", data)
+	}
+
 	var unmarshaledResult commandResult
 	err = json.Unmarshal(data, &unmarshaledResult)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal commandResult: %v", err)
 	}
 
+	if unmarshaledResult.Id != result.Id {
+		t.Errorf("Id = %v, want %v", unmarshaledResult.Id, result.Id)
+	}
 	if unmarshaledResult.Version != result.Version {
 		t.Errorf("Version = %v, want %v", unmarshaledResult.Version, result.Version)
 	}
