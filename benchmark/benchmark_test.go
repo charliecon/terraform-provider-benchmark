@@ -210,6 +210,18 @@ func TestBenchmark_validate(t *testing.T) {
 			wantErr: true,
 			errMsg:  "ref is required",
 		},
+		{
+			name: "negative parallelism",
+			benchmark: &Benchmark{
+				TfCommand:           Plan,
+				Targets:             []BenchmarkTarget{{Ref: "main", Parallelism: -1}},
+				ProjectPath:         "/test/path",
+				TerraformRcFilePath: terraformrcPath,
+				TfConfigDir:         tfConfigDir,
+			},
+			wantErr: true,
+			errMsg:  "parallelism must be zero or positive",
+		},
 	}
 
 	for _, tt := range tests {
@@ -322,6 +334,55 @@ func TestBenchmark_writeDataToFile(t *testing.T) {
 
 	if !strings.Contains(string(content), `"id": "main_with_env_var"`) {
 		t.Errorf("data.json should contain id field, got: %s", content)
+	}
+}
+
+func TestTerraformCommandParts(t *testing.T) {
+	tests := []struct {
+		name        string
+		tfCommand   command
+		parallelism int
+		want        []string
+		wantErr     bool
+	}{
+		{
+			name:        "plan without parallelism",
+			tfCommand:   Plan,
+			parallelism: 0,
+			want:        []string{"terraform", "plan"},
+		},
+		{
+			name:        "apply with parallelism",
+			tfCommand:   Apply,
+			parallelism: 10,
+			want:        []string{"terraform", "apply", "--auto-approve", "-parallelism", "10"},
+		},
+		{
+			name:      "invalid command",
+			tfCommand: command(""),
+			wantErr:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := terraformCommandParts(tt.tfCommand, tt.parallelism)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("terraformCommandParts() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+
+			if len(got) != len(tt.want) {
+				t.Fatalf("terraformCommandParts() = %v, want %v", got, tt.want)
+			}
+			for i := range tt.want {
+				if got[i] != tt.want[i] {
+					t.Errorf("terraformCommandParts()[%d] = %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
 	}
 }
 

@@ -35,6 +35,10 @@ type BenchmarkTarget struct {
 	// this target (make sideload and Terraform plan/apply/destroy). TF_CLI_CONFIG_FILE
 	// is still set automatically for Terraform commands.
 	Env map[string]string
+
+	// Parallelism sets -parallelism on Terraform plan/apply/destroy for this target.
+	// Zero uses the Terraform default.
+	Parallelism int
 }
 
 // Target returns a BenchmarkTarget for ref with no extra environment variables.

@@ -160,12 +160,15 @@ b := &benchmark.Benchmark{
             Env: map[string]string{
                 "GENESYSCLOUD_REGION": "us-east-1",
             },
+            Parallelism: 10,
         },
     },
 }
 ```
 
 Per-target `Env` is passed to `make sideload` and to Terraform plan/apply/destroy for that target. `TF_CLI_CONFIG_FILE` is still set automatically for Terraform commands.
+
+Set `Parallelism` to pass `-parallelism` to Terraform plan, apply, and destroy for that target. Leave at zero to use the Terraform default.
 
 #### OutputDir
 Specify a custom directory for benchmark output files. If not provided, defaults to `output`.

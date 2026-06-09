@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 )
 
 func (b *Benchmark) initialiseTerraform() error {
@@ -37,10 +36,9 @@ func (b *Benchmark) runTerraformCommand(target BenchmarkTarget) error {
 	}
 	defer func() { _ = outputFile.Close() }()
 
-	// Split the command into executable and arguments
-	commandParts := strings.Fields(string(b.TfCommand))
-	if len(commandParts) == 0 {
-		return fmt.Errorf("invalid command: %s", string(b.TfCommand))
+	commandParts, err := terraformCommandParts(b.TfCommand, target.Parallelism)
+	if err != nil {
+		return err
 	}
 
 	cmd := b.setupTerraformCommand(commandParts, outputFile, true, target.Env)
@@ -77,8 +75,8 @@ func (b *Benchmark) makeSideload(target BenchmarkTarget) (err error) {
 }
 
 // destroy runs terraform destroy with optional confirmation
-func (b *Benchmark) destroy(extraEnv map[string]string) error {
-	command := []string{"terraform", "destroy", "--auto-approve"}
+func (b *Benchmark) destroy(target BenchmarkTarget) error {
+	command := appendParallelism([]string{"terraform", "destroy", "--auto-approve"}, target.Parallelism)
 	b.logMessage(LogLevelInfo, "🔥 Running %v in directory %s", command, b.TfConfigDir)
 
 	outputFile, err := os.OpenFile(b.destroyLogFilePath, os.O_WRONLY|os.O_TRUNC, 0644)
@@ -87,7 +85,7 @@ func (b *Benchmark) destroy(extraEnv map[string]string) error {
 	}
 	defer func() { _ = outputFile.Close() }()
 
-	cmd := b.setupTerraformCommand(command, outputFile, true, extraEnv)
+	cmd := b.setupTerraformCommand(command, outputFile, true, target.Env)
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("destroy failed: %v", err)

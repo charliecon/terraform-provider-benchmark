@@ -22,7 +22,7 @@ func (b *Benchmark) testTargets() error {
 		}
 
 		if b.TfCommand != Plan {
-			if err := b.destroy(target.Env); err != nil {
+			if err := b.destroy(target); err != nil {
 				return fmt.Errorf("destroy failed: %v", err)
 			}
 		}
