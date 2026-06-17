@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestBenchmark_configureDefaults(t *testing.T) {
@@ -222,6 +223,19 @@ func TestBenchmark_validate(t *testing.T) {
 			wantErr: true,
 			errMsg:  "parallelism must be zero or positive",
 		},
+		{
+			name: "negative sleep between targets",
+			benchmark: &Benchmark{
+				TfCommand:           Plan,
+				Targets:             []BenchmarkTarget{Target("main")},
+				ProjectPath:         "/test/path",
+				TerraformRcFilePath: terraformrcPath,
+				TfConfigDir:         tfConfigDir,
+				SleepBetweenTargets: -1 * time.Second,
+			},
+			wantErr: true,
+			errMsg:  "sleep between targets must be zero or positive",
+		},
 	}
 
 	for _, tt := range tests {
@@ -288,7 +302,7 @@ func TestBenchmark_writeDataToFile(t *testing.T) {
 	}
 
 	testData := []commandResult{
-		{Id: "main_with_env_var", Version: "main", Duration: 10.5},
+		{Id: "main_with_env_var", Version: "main", Parallelism: 10, Duration: 10.5},
 		{Version: "v1.1.0", Duration: 9.8},
 		{Version: "main", Duration: 11.2},
 	}
@@ -324,6 +338,9 @@ func TestBenchmark_writeDataToFile(t *testing.T) {
 		if result[i].Id != expected.Id {
 			t.Errorf("Record %d: Id = %v, want %v", i, result[i].Id, expected.Id)
 		}
+		if result[i].Parallelism != expected.Parallelism {
+			t.Errorf("Record %d: Parallelism = %v, want %v", i, result[i].Parallelism, expected.Parallelism)
+		}
 		if result[i].Version != expected.Version {
 			t.Errorf("Record %d: Version = %v, want %v", i, result[i].Version, expected.Version)
 		}
@@ -334,6 +351,9 @@ func TestBenchmark_writeDataToFile(t *testing.T) {
 
 	if !strings.Contains(string(content), `"id": "main_with_env_var"`) {
 		t.Errorf("data.json should contain id field, got: %s", content)
+	}
+	if !strings.Contains(string(content), `"parallelism": 10`) {
+		t.Errorf("data.json should contain parallelism field, got: %s", content)
 	}
 }
 
@@ -594,9 +614,10 @@ func TestBenchmark_logMessage(t *testing.T) {
 
 func TestCommandResult_JSON(t *testing.T) {
 	result := commandResult{
-		Id:       "main_with_env_var",
-		Version:  "main",
-		Duration: 10.5,
+		Id:          "main_with_env_var",
+		Version:     "main",
+		Parallelism: 10,
+		Duration:    10.5,
 	}
 
 	data, err := json.Marshal(result)
@@ -606,6 +627,9 @@ func TestCommandResult_JSON(t *testing.T) {
 
 	if !strings.Contains(string(data), `"id":"main_with_env_var"`) && !strings.Contains(string(data), `"id": "main_with_env_var"`) {
 		t.Errorf("marshaled JSON should contain id, got: %s", data)
+	}
+	if !strings.Contains(string(data), `"parallelism":10`) && !strings.Contains(string(data), `"parallelism": 10`) {
+		t.Errorf("marshaled JSON should contain parallelism, got: %s", data)
 	}
 
 	var unmarshaledResult commandResult
@@ -617,11 +641,22 @@ func TestCommandResult_JSON(t *testing.T) {
 	if unmarshaledResult.Id != result.Id {
 		t.Errorf("Id = %v, want %v", unmarshaledResult.Id, result.Id)
 	}
+	if unmarshaledResult.Parallelism != result.Parallelism {
+		t.Errorf("Parallelism = %v, want %v", unmarshaledResult.Parallelism, result.Parallelism)
+	}
 	if unmarshaledResult.Version != result.Version {
 		t.Errorf("Version = %v, want %v", unmarshaledResult.Version, result.Version)
 	}
 	if unmarshaledResult.Duration != result.Duration {
 		t.Errorf("Duration = %v, want %v", unmarshaledResult.Duration, result.Duration)
+	}
+
+	withoutParallelism, err := json.Marshal(commandResult{Version: "main", Duration: 10.5})
+	if err != nil {
+		t.Fatalf("Failed to marshal commandResult without parallelism: %v", err)
+	}
+	if strings.Contains(string(withoutParallelism), "parallelism") {
+		t.Errorf("parallelism should be omitted when zero, got: %s", withoutParallelism)
 	}
 }
 

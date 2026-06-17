@@ -40,11 +40,17 @@ func (b *Benchmark) testTargets() error {
 
 		// Store results
 		result := commandResult{
-			Id:       target.Id,
-			Version:  target.Ref,
-			Duration: duration,
+			Id:          target.Id,
+			Version:     target.Ref,
+			Parallelism: target.Parallelism,
+			Duration:    duration,
 		}
 		data = append(data, result)
+
+		if b.SleepBetweenTargets > 0 && i < len(b.Targets)-1 {
+			b.logMessage(LogLevelInfo, "Sleeping %s before next target", b.SleepBetweenTargets)
+			time.Sleep(b.SleepBetweenTargets)
+		}
 	}
 
 	return b.writeDataToFile(data)
