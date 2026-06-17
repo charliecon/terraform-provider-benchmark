@@ -1,5 +1,7 @@
 package benchmark
 
+import "time"
+
 type command string
 
 const (
@@ -82,6 +84,10 @@ type Benchmark struct {
 	// RequireConfirmation controls whether to require user confirmation for destructive operations (Deprecated. Use SkipDestroyConfirmation instead.)
 	RequireConfirmation bool
 
+	// SleepBetweenTargets pauses after each target finishes before starting the next.
+	// Zero means no pause. The last target is not followed by a sleep.
+	SleepBetweenTargets time.Duration
+
 	logsDir             string
 	performanceDir      string
 	performanceFilePath string
@@ -91,7 +97,8 @@ type Benchmark struct {
 
 // commandResult stores details about each Terraform command execution
 type commandResult struct {
-	Id       string  `json:"id,omitempty"`
-	Version  string  `json:"version"`
-	Duration float64 `json:"duration"`
+	Id          string  `json:"id,omitempty"`
+	Version     string  `json:"version"`
+	Parallelism int     `json:"parallelism,omitempty"`
+	Duration    float64 `json:"duration"`
 }

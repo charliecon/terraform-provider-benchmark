@@ -170,6 +170,18 @@ Per-target `Env` is passed to `make sideload` and to Terraform plan/apply/destro
 
 Set `Parallelism` to pass `-parallelism` to Terraform plan, apply, and destroy for that target. Leave at zero to use the Terraform default.
 
+#### SleepBetweenTargets
+Pause between finishing one target and starting the next. Useful when you need time for rate limits or external systems to settle. Defaults to no pause.
+
+```go
+import "time"
+
+b := &benchmark.Benchmark{
+    // ... other fields ...
+    SleepBetweenTargets: 30 * time.Second,
+}
+```
+
 #### OutputDir
 Specify a custom directory for benchmark output files. If not provided, defaults to `output`.
 
@@ -224,6 +236,7 @@ The `data.json` file contains timing results in the following format:
     {
         "id": "main_with_env_var",
         "version": "main",
+        "parallelism": 10,
         "duration": 12.345
     },
     {

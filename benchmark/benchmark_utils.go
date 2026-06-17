@@ -73,6 +73,9 @@ func (b *Benchmark) validate() error {
 	if _, err := os.Stat(b.TfConfigDir); os.IsNotExist(err) {
 		return fmt.Errorf("terraform config directory does not exist at %s", b.TfConfigDir)
 	}
+	if b.SleepBetweenTargets < 0 {
+		return errors.New("sleep between targets must be zero or positive")
+	}
 
 	return nil
 }
