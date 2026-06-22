@@ -16,6 +16,7 @@ const (
 	destroyLogFileName      = "destroy.log"
 	performanceDataFileName = "data.json"
 	initLogFileName         = "init.log"
+	logSeparatorWidth       = 63
 )
 
 // configureDefaults sets the default values for the benchmark
@@ -160,6 +161,7 @@ func (b *Benchmark) setupTerraformCommand(command []string, outputFile *os.File,
 	return cmd
 }
 
+
 // logMessage provides structured logging based on the benchmark's log level
 func (b *Benchmark) logMessage(level LogLevel, format string, args ...interface{}) {
 	if b.LogLevel >= level {
@@ -169,6 +171,25 @@ func (b *Benchmark) logMessage(level LogLevel, format string, args ...interface{
 			log.Printf("[INFO] "+format, args...)
 		}
 	}
+}
+
+func (b *Benchmark) logSeparator() {
+	b.logMessage(LogLevelInfo, strings.Repeat("─", logSeparatorWidth))
+}
+
+func (b *Benchmark) logTargetStart(index int, total int, target BenchmarkTarget) {
+	b.logSeparator()
+	b.logMessage(LogLevelInfo, "TARGET %d/%d: %s", index, total, target.displayName())
+	b.logSeparator()
+}
+
+func (b *Benchmark) logTargetStep(format string, args ...interface{}) {
+	b.logMessage(LogLevelInfo, "  → "+format, args...)
+}
+
+func (b *Benchmark) logTargetEnd(index int, total int, target BenchmarkTarget, duration float64) {
+	b.logMessage(LogLevelInfo, "Finished target %d/%d: %s (%.2fs)", index, total, target.displayName(), duration)
+	b.logSeparator()
 }
 
 // confirmDestructiveOperation prompts the user for confirmation before destructive operations

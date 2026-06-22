@@ -43,18 +43,18 @@ func (b *Benchmark) runTerraformCommand(target BenchmarkTarget) error {
 
 	cmd := b.setupTerraformCommand(commandParts, outputFile, true, target.Env)
 
-	b.logMessage(LogLevelInfo, "⌛️ Running %s for version %s in directory %s", string(b.TfCommand), target.Ref, b.TfConfigDir)
+	b.logTargetStep("⌛️ Running %s in directory %s", string(b.TfCommand), b.TfConfigDir)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("terraform command failed: %w", err)
 	}
 
-	b.logMessage(LogLevelInfo, "✅ Successfully completed command: %s", string(b.TfCommand))
+	b.logTargetStep("✅ Successfully completed command: %s", string(b.TfCommand))
 	return nil
 }
 
 // makeSideload checks out the specified ref and runs make sideload
 func (b *Benchmark) makeSideload(target BenchmarkTarget) (err error) {
-	b.logMessage(LogLevelInfo, "Checking out %s in %s", target.Ref, b.ProjectPath)
+	b.logTargetStep("Checking out %s in %s", target.Ref, b.ProjectPath)
 	// Checkout specific hash
 	cmd := exec.Command("git", "checkout", target.Ref)
 	cmd.Dir = b.ProjectPath
@@ -62,7 +62,7 @@ func (b *Benchmark) makeSideload(target BenchmarkTarget) (err error) {
 		return fmt.Errorf("git checkout failed: %w", err)
 	}
 
-	b.logMessage(LogLevelInfo, "Running make sideload in %s", b.ProjectPath)
+	b.logTargetStep("Running make sideload in %s", b.ProjectPath)
 	// Run make sideload
 	cmd = exec.Command("make", "sideload")
 	cmd.Dir = b.ProjectPath
@@ -77,7 +77,7 @@ func (b *Benchmark) makeSideload(target BenchmarkTarget) (err error) {
 // destroy runs terraform destroy with optional confirmation
 func (b *Benchmark) destroy(target BenchmarkTarget) error {
 	command := appendParallelism([]string{"terraform", "destroy", "--auto-approve"}, target.Parallelism)
-	b.logMessage(LogLevelInfo, "🔥 Running %v in directory %s", command, b.TfConfigDir)
+	b.logTargetStep("🔥 Running %v in directory %s", command, b.TfConfigDir)
 
 	outputFile, err := os.OpenFile(b.destroyLogFilePath, os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
@@ -91,6 +91,6 @@ func (b *Benchmark) destroy(target BenchmarkTarget) error {
 		return fmt.Errorf("destroy failed: %v", err)
 	}
 
-	b.logMessage(LogLevelInfo, "🔥 Destroy successful")
+	b.logTargetStep("🔥 Destroy successful")
 	return nil
 }

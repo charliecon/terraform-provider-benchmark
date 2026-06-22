@@ -422,6 +422,22 @@ func TestBenchmarkTarget_outputKey(t *testing.T) {
 	}
 }
 
+func TestBenchmarkTarget_displayName(t *testing.T) {
+	tests := []struct {
+		target   BenchmarkTarget
+		expected string
+	}{
+		{target: BenchmarkTarget{Ref: "main"}, expected: "main"},
+		{target: BenchmarkTarget{Id: "main_with_env_var", Ref: "main"}, expected: "main_with_env_var (main)"},
+	}
+
+	for _, tt := range tests {
+		if got := tt.target.displayName(); got != tt.expected {
+			t.Errorf("displayName() = %q, want %q", got, tt.expected)
+		}
+	}
+}
+
 func TestBenchmark_createOutputDirectories(t *testing.T) {
 	// Create temporary directory for test
 	tempDir, err := os.MkdirTemp("", "benchmark_test")
