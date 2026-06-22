@@ -56,6 +56,14 @@ func (t BenchmarkTarget) outputKey() string {
 	return t.Ref
 }
 
+// displayName returns a human-readable label for log output.
+func (t BenchmarkTarget) displayName() string {
+	if t.Id != "" {
+		return t.Id + " (" + t.Ref + ")"
+	}
+	return t.Ref
+}
+
 type Benchmark struct {
 	// TfCommand Terraform command to run
 	TfCommand command

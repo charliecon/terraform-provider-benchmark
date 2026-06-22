@@ -15,7 +15,7 @@ func (b *Benchmark) testTargets() error {
 
 	// Iterate through targets, testing each one
 	for i, target := range b.Targets {
-		b.logMessage(LogLevelInfo, "Starting benchmark for %s (%d/%d)", target.Ref, i+1, len(b.Targets))
+		b.logTargetStart(i+1, len(b.Targets), target)
 
 		if err := b.makeSideload(target); err != nil {
 			return err
@@ -28,7 +28,6 @@ func (b *Benchmark) testTargets() error {
 		}
 
 		// Time the execution of terraform command
-		b.logMessage(LogLevelInfo, "Running Terraform command for %s", target.Ref)
 		start := time.Now()
 		if err := b.runTerraformCommand(target); err != nil {
 			return err
@@ -36,7 +35,7 @@ func (b *Benchmark) testTargets() error {
 		end := time.Now()
 
 		duration := end.Sub(start).Seconds()
-		b.logMessage(LogLevelInfo, "Completed %s in %.2f seconds", target.Ref, duration)
+		b.logTargetEnd(i+1, len(b.Targets), target, duration)
 
 		// Store results
 		result := commandResult{
@@ -77,6 +76,7 @@ func (b *Benchmark) Run() (err error) {
 		return fmt.Errorf("failed to test commit hashes: %w", err)
 	}
 
+	b.logSeparator()
 	b.logMessage(LogLevelInfo, "🎉 Benchmark completed successfully")
 	b.logMessage(LogLevelInfo, "📈 All results were written to the %s directory", b.OutputDir)
 
