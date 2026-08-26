@@ -108,9 +108,12 @@ func terraformCommandParts(tfCommand command, parallelism int) ([]string, error)
 	return appendParallelism(parts, parallelism), nil
 }
 
-// generateLogFilePath generates the path to the log file for a given reference
+// generateLogFilePath generates the path to the log file for a given reference.
+// Path separators and dots are replaced so branch names like "bug/issue-2509"
+// become a single file under logsDir rather than nested directories.
 func (b *Benchmark) generateLogFilePath(reference string) string {
-	filename := strings.ReplaceAll(reference, ".", "_")
+	replacer := strings.NewReplacer(".", "_", "/", "_", `\`, "_")
+	filename := replacer.Replace(reference)
 	return filepath.Join(b.logsDir, fmt.Sprintf("%s.log", filename))
 }
 
