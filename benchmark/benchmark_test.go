@@ -310,7 +310,7 @@ func TestBenchmark_writeDataToFile(t *testing.T) {
 	}
 
 	testData := []commandResult{
-		{Id: "main_with_env_var", Version: "main", Parallelism: 10, Duration: 10.5},
+		{Id: "main_with_env_var", Version: "main", Parallelism: 10, Duration: 10.5, ExportedResources: map[string]int{"genesyscloud_routing_queue": 336}},
 		{Version: "v1.1.0", Duration: 9.8},
 		{Version: "main", Duration: 11.2},
 	}
@@ -355,6 +355,14 @@ func TestBenchmark_writeDataToFile(t *testing.T) {
 		if result[i].Duration != expected.Duration {
 			t.Errorf("Record %d: Duration = %v, want %v", i, result[i].Duration, expected.Duration)
 		}
+		if len(result[i].ExportedResources) != len(expected.ExportedResources) {
+			t.Errorf("Record %d: ExportedResources = %v, want %v", i, result[i].ExportedResources, expected.ExportedResources)
+		}
+		for resourceType, count := range expected.ExportedResources {
+			if result[i].ExportedResources[resourceType] != count {
+				t.Errorf("Record %d: ExportedResources[%s] = %v, want %v", i, resourceType, result[i].ExportedResources[resourceType], count)
+			}
+		}
 	}
 
 	if !strings.Contains(string(content), `"id": "main_with_env_var"`) {
@@ -362,6 +370,12 @@ func TestBenchmark_writeDataToFile(t *testing.T) {
 	}
 	if !strings.Contains(string(content), `"parallelism": 10`) {
 		t.Errorf("data.json should contain parallelism field, got: %s", content)
+	}
+	if !strings.Contains(string(content), `"exported_resources"`) {
+		t.Errorf("data.json should contain exported_resources field, got: %s", content)
+	}
+	if !strings.Contains(string(content), `"genesyscloud_routing_queue": 336`) {
+		t.Errorf("data.json should contain exported resource counts, got: %s", content)
 	}
 }
 
@@ -684,6 +698,20 @@ func TestCommandResult_JSON(t *testing.T) {
 	if strings.Contains(string(withoutParallelism), "parallelism") {
 		t.Errorf("parallelism should be omitted when zero, got: %s", withoutParallelism)
 	}
+
+	withResources, err := json.Marshal(commandResult{
+		Version:  "main",
+		Duration: 10.5,
+		ExportedResources: map[string]int{
+			"genesyscloud_routing_queue": 336,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Failed to marshal commandResult with exported resources: %v", err)
+	}
+	if !strings.Contains(string(withResources), `"genesyscloud_routing_queue":336`) && !strings.Contains(string(withResources), `"genesyscloud_routing_queue": 336`) {
+		t.Errorf("marshaled JSON should contain exported resource counts, got: %s", withResources)
+	}
 }
 
 func TestCommand_String(t *testing.T) {
@@ -786,6 +814,180 @@ func TestBenchmark_Integration(t *testing.T) {
 	}
 	if b.initLogFilePath == "" {
 		t.Error("initLogFilePath was not configured")
+	}
+}
+
+func TestCountExportedResources(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "export_count_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
+	writeJSON := func(name, content string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(tempDir, name), []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to write %s: %v", name, err)
+		}
+	}
+
+	writeJSON("genesyscloud.tf.json", `{
+		"resource": {
+			"genesyscloud_routing_queue": {
+				"queue_a": {},
+				"queue_b": {},
+				"queue_c": {}
+			},
+			"genesyscloud_user": {
+				"user_a": {}
+			}
+		},
+		"terraform": {
+			"required_providers": {}
+		}
+	}`)
+
+	counts, err := countExportedResources(tempDir)
+	if err != nil {
+		t.Fatalf("countExportedResources() error = %v", err)
+	}
+	if counts["genesyscloud_routing_queue"] != 3 {
+		t.Errorf("genesyscloud_routing_queue = %d, want 3", counts["genesyscloud_routing_queue"])
+	}
+	if counts["genesyscloud_user"] != 1 {
+		t.Errorf("genesyscloud_user = %d, want 1", counts["genesyscloud_user"])
+	}
+
+	writeJSON("more.tf.json", `{
+		"resource": {
+			"genesyscloud_routing_queue": {
+				"queue_d": {}
+			},
+			"genesyscloud_auth_role": {
+				"role_a": {},
+				"role_b": {}
+			}
+		}
+	}`)
+
+	counts, err = countExportedResources(tempDir)
+	if err != nil {
+		t.Fatalf("countExportedResources() after second file error = %v", err)
+	}
+	if counts["genesyscloud_routing_queue"] != 4 {
+		t.Errorf("merged genesyscloud_routing_queue = %d, want 4", counts["genesyscloud_routing_queue"])
+	}
+	if counts["genesyscloud_auth_role"] != 2 {
+		t.Errorf("genesyscloud_auth_role = %d, want 2", counts["genesyscloud_auth_role"])
+	}
+}
+
+func TestCountExportedResources_errors(t *testing.T) {
+	t.Run("missing directory", func(t *testing.T) {
+		_, err := countExportedResources("/nonexistent/export-dir")
+		if err == nil {
+			t.Fatal("expected error for missing directory")
+		}
+		if !strings.Contains(err.Error(), "export directory") {
+			t.Errorf("error = %v, want mention of export directory", err)
+		}
+	})
+
+	t.Run("no json files", func(t *testing.T) {
+		tempDir, err := os.MkdirTemp("", "export_empty_test")
+		if err != nil {
+			t.Fatalf("Failed to create temp dir: %v", err)
+		}
+		defer func() { _ = os.RemoveAll(tempDir) }()
+
+		_, err = countExportedResources(tempDir)
+		if err == nil {
+			t.Fatal("expected error when no .tf.json files exist")
+		}
+		if !strings.Contains(err.Error(), "no .tf.json files found") {
+			t.Errorf("error = %v, want no .tf.json files found", err)
+		}
+	})
+
+	t.Run("invalid json", func(t *testing.T) {
+		tempDir, err := os.MkdirTemp("", "export_invalid_test")
+		if err != nil {
+			t.Fatalf("Failed to create temp dir: %v", err)
+		}
+		defer func() { _ = os.RemoveAll(tempDir) }()
+
+		if err := os.WriteFile(filepath.Join(tempDir, "broken.tf.json"), []byte("{not json"), 0644); err != nil {
+			t.Fatalf("Failed to write broken json: %v", err)
+		}
+
+		_, err = countExportedResources(tempDir)
+		if err == nil {
+			t.Fatal("expected error for invalid json")
+		}
+		if !strings.Contains(err.Error(), "failed to parse") {
+			t.Errorf("error = %v, want parse failure", err)
+		}
+	})
+
+	t.Run("path is a file", func(t *testing.T) {
+		tempDir, err := os.MkdirTemp("", "export_file_test")
+		if err != nil {
+			t.Fatalf("Failed to create temp dir: %v", err)
+		}
+		defer func() { _ = os.RemoveAll(tempDir) }()
+
+		filePath := filepath.Join(tempDir, "not-a-dir")
+		if err := os.WriteFile(filePath, []byte("x"), 0644); err != nil {
+			t.Fatalf("Failed to write file: %v", err)
+		}
+
+		_, err = countExportedResources(filePath)
+		if err == nil {
+			t.Fatal("expected error when export path is a file")
+		}
+		if !strings.Contains(err.Error(), "not a directory") {
+			t.Errorf("error = %v, want not a directory", err)
+		}
+	})
+}
+
+func TestBenchmark_exportedResourceCounts_unset(t *testing.T) {
+	b := &Benchmark{}
+	counts, err := b.exportedResourceCounts()
+	if err != nil {
+		t.Fatalf("exportedResourceCounts() error = %v", err)
+	}
+	if counts != nil {
+		t.Errorf("exportedResourceCounts() = %v, want nil when ExportDir is unset", counts)
+	}
+}
+
+func TestBenchmark_exportedResourceCounts(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "export_dir_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
+	content := `{
+		"resource": {
+			"genesyscloud_routing_queue": {
+				"queue_a": {},
+				"queue_b": {}
+			}
+		}
+	}`
+	if err := os.WriteFile(filepath.Join(tempDir, "genesyscloud.tf.json"), []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to write json: %v", err)
+	}
+
+	b := &Benchmark{ExportDir: tempDir, LogLevel: LogLevelQuiet}
+	counts, err := b.exportedResourceCounts()
+	if err != nil {
+		t.Fatalf("exportedResourceCounts() error = %v", err)
+	}
+	if counts["genesyscloud_routing_queue"] != 2 {
+		t.Errorf("genesyscloud_routing_queue = %d, want 2", counts["genesyscloud_routing_queue"])
 	}
 }
 
