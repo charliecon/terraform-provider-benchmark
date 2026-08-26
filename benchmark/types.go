@@ -89,6 +89,10 @@ type Benchmark struct {
 	// TfConfigDir is the directory containing the Terraform configuration to run commands against (Defaults to current working directory)
 	TfConfigDir string
 
+	// ExportDir is the directory containing exported Terraform JSON (e.g. "./tfconfig/genesyscloud").
+	// When set, each result includes a count of exported resources by type from *.tf.json files there.
+	ExportDir string
+
 	// RequireConfirmation controls whether to require user confirmation for destructive operations (Deprecated. Use SkipDestroyConfirmation instead.)
 	RequireConfirmation bool
 
@@ -105,8 +109,9 @@ type Benchmark struct {
 
 // commandResult stores details about each Terraform command execution
 type commandResult struct {
-	Id          string  `json:"id,omitempty"`
-	Version     string  `json:"version"`
-	Parallelism int     `json:"parallelism,omitempty"`
-	Duration    float64 `json:"duration"`
+	Id                string         `json:"id,omitempty"`
+	Version           string         `json:"version"`
+	Parallelism       int            `json:"parallelism,omitempty"`
+	Duration          float64        `json:"duration"`
+	ExportedResources map[string]int `json:"exported_resources,omitempty"`
 }

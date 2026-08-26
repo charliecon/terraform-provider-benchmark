@@ -192,6 +192,19 @@ b := &benchmark.Benchmark{
 }
 ```
 
+#### ExportDir
+Optional path to the folder that contains exported Terraform JSON (typically produced by `genesyscloud_tf_export`, e.g. `./tfconfig/genesyscloud`). After each target, the benchmark reads `*.tf.json` files there and records how many resources of each type were exported.
+
+```go
+b := &benchmark.Benchmark{
+    // ... other fields ...
+    TfConfigDir: "./tfconfig",
+    ExportDir:   "./tfconfig/genesyscloud",
+}
+```
+
+The directory does not need to exist before the run (the export may create it), but it must contain at least one `.tf.json` file after each Terraform command.
+
 ### Available Commands
 
 The benchmark supports the following Terraform commands:
@@ -237,7 +250,10 @@ The `data.json` file contains timing results in the following format:
         "id": "main_with_env_var",
         "version": "main",
         "parallelism": 10,
-        "duration": 12.345
+        "duration": 12.345,
+        "exported_resources": {
+            "genesyscloud_routing_queue": 336
+        }
     },
     {
         "version": "v1.66.0",
@@ -259,6 +275,7 @@ The `data.json` file contains timing results in the following format:
    - Runs `make sideload` to build and install the provider
    - Runs `terraform destroy` to clean up any existing state before testing (with optional confirmation, skipped for `terraform plan`)
    - Executes the specified Terraform command and measures execution time
+   - If `ExportDir` is set, counts exported resources by type from `*.tf.json` files in that directory
    - Records the results
 4. **Output**: Saves timing data to JSON file and logs to individual files
 

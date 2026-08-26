@@ -35,14 +35,21 @@ func (b *Benchmark) testTargets() error {
 		end := time.Now()
 
 		duration := end.Sub(start).Seconds()
+
+		exportedResources, err := b.exportedResourceCounts()
+		if err != nil {
+			return fmt.Errorf("failed to count exported resources: %w", err)
+		}
+
 		b.logTargetEnd(i+1, len(b.Targets), target, duration)
 
 		// Store results
 		result := commandResult{
-			Id:          target.Id,
-			Version:     target.Ref,
-			Parallelism: target.Parallelism,
-			Duration:    duration,
+			Id:                target.Id,
+			Version:           target.Ref,
+			Parallelism:       target.Parallelism,
+			Duration:          duration,
+			ExportedResources: exportedResources,
 		}
 		data = append(data, result)
 
