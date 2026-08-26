@@ -277,6 +277,14 @@ func TestBenchmark_generateLogFilePath(t *testing.T) {
 			reference: "feature.branch",
 			expected:  filepath.Join("/test/logs", "feature_branch.log"),
 		},
+		{
+			reference: "bug/issue-2509",
+			expected:  filepath.Join("/test/logs", "bug_issue-2509.log"),
+		},
+		{
+			reference: "feature/foo/bar",
+			expected:  filepath.Join("/test/logs", "feature_foo_bar.log"),
+		},
 	}
 
 	for _, tt := range tests {
@@ -452,6 +460,7 @@ func TestBenchmark_createOutputDirectories(t *testing.T) {
 			Target("v1.0.0"),
 			Target("main"),
 			Target("feature.branch"),
+			Target("bug/issue-2509"),
 		},
 	}
 	b.configureOutputPaths()
@@ -490,6 +499,7 @@ func TestBenchmark_createOutputDirectories(t *testing.T) {
 		filepath.Join("test-output", "logs", "v1_0_0.log"),
 		filepath.Join("test-output", "logs", "main.log"),
 		filepath.Join("test-output", "logs", "feature_branch.log"),
+		filepath.Join("test-output", "logs", "bug_issue-2509.log"),
 		filepath.Join("test-output", "logs", "destroy.log"),
 		filepath.Join("test-output", "logs", "init.log"),
 		filepath.Join("test-output", "performance", "data.json"),
